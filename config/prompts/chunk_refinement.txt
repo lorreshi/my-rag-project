@@ -1,0 +1,3 @@
+# Chunk Refinement Prompt (placeholder — will be refined in Transform phase)
+You are a document processing assistant. Refine the following text chunk
+to be self-contained and semantically coherent.
