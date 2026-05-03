@@ -22,8 +22,12 @@ import yaml
 class LLMConfig:
     provider: str = ""
     model: str = ""
-    azure_endpoint: str = ""
     api_key: str = ""
+    azure_endpoint: str = ""
+    api_version: str = "2024-06-01"
+    base_url: str = ""  # For OpenAI-compatible endpoints (DeepSeek, etc.)
+    temperature: float = 0.0
+    max_tokens: int = 4096
 
 
 @dataclass
