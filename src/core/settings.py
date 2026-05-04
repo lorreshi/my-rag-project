@@ -34,6 +34,10 @@ class LLMConfig:
 class EmbeddingConfig:
     provider: str = ""
     model: str = ""
+    api_key: str = ""
+    azure_endpoint: str = ""
+    api_version: str = "2024-06-01"
+    base_url: str = ""  # For Ollama or custom endpoints
 
 
 @dataclass
