@@ -63,8 +63,8 @@
 | B7.6 | ChromaStore 默认实现 | [x] | 2026-05-04 | |
 | B7.7 | LLM Reranker 实现 | [x] | 2026-05-04 | |
 | B7.8 | Cross-Encoder Reranker 实现 | [x] | 2026-05-04 | |
-| B8 | Vision LLM 抽象接口与工厂集成 | [ ] | | |
-| B9 | Azure Vision LLM 实现 | [ ] | | |
+| B8 | Vision LLM 抽象接口与工厂集成 | [x] | 2026-05-04 | |
+| B9 | Azure Vision LLM 实现 | [x] | 2026-05-04 | |
 
 #### 阶段 C：Ingestion Pipeline MVP
 

@@ -44,6 +44,10 @@ class EmbeddingConfig:
 class VisionLLMConfig:
     provider: str = ""
     model: str = ""
+    api_key: str = ""
+    azure_endpoint: str = ""
+    api_version: str = "2024-06-01"
+    max_image_size: int = 2048  # max edge length in pixels
 
 
 @dataclass
