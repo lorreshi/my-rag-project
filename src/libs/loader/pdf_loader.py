@@ -1,11 +1,3 @@
-'''
-Author: lorreshi lorreshi@163.com
-Date: 2026-04-19 18:52:24
-LastEditors: lorreshi lorreshi@163.com
-LastEditTime: 2026-05-05 15:05:02
-FilePath: /my-rag-project/src/libs/loader/pdf_loader.py
-Description: 这是默认设置,请设置`customMade`, 打开koroFileHeader查看配置 进行设置: https://github.com/OBKoro1/koro1FileHeader/wiki/%E9%85%8D%E7%BD%AE
-'''
 """PDF Loader — converts PDF to canonical Markdown using MarkItDown.
 
 Responsibilities:
