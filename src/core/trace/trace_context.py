@@ -43,21 +43,22 @@ class TraceContext:
         self.trace_id: str = trace_id or uuid.uuid4().hex[:16]
         self.trace_type: str = trace_type
         self.stages: list[StageRecord] = []
-        self._current_stage: StageRecord | None = None
+        # Stack of in-progress stages, supports nested start/end calls.
+        self._stage_stack: list[StageRecord] = []
 
     def start_stage(self, name: str) -> None:
-        """Begin recording a new stage."""
-        self._current_stage = StageRecord(name=name, start_time=time())
+        """Begin recording a new stage (supports nesting)."""
+        self._stage_stack.append(StageRecord(name=name, start_time=time()))
 
     def end_stage(self, details: dict[str, Any] | None = None) -> None:
-        """Finish the current stage and store its record."""
-        if self._current_stage is None:
+        """Finish the most recently started stage and store its record."""
+        if not self._stage_stack:
             return
-        self._current_stage.end_time = time()
+        stage = self._stage_stack.pop()
+        stage.end_time = time()
         if details:
-            self._current_stage.details.update(details)
-        self.stages.append(self._current_stage)
-        self._current_stage = None
+            stage.details.update(details)
+        self.stages.append(stage)
 
     def record_stage(
         self, name: str, details: dict[str, Any] | None = None
