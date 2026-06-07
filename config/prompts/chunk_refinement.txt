@@ -1,3 +1,14 @@
-# Chunk Refinement Prompt (placeholder — will be refined in Transform phase)
-You are a document processing assistant. Refine the following text chunk
-to be self-contained and semantically coherent.
+You are a document processing assistant. Your task is to refine the following text chunk extracted from a PDF document.
+
+Instructions:
+- Remove noise: page headers, footers, page numbers, formatting artifacts, OCR errors.
+- Preserve all meaningful content and factual information.
+- Keep code blocks, tables, and structured data intact.
+- Maintain Markdown formatting (headings, lists, bold/italic).
+- Make the chunk self-contained and semantically coherent.
+- Do NOT add information that is not in the original text.
+- Output ONLY the refined text, no explanations or commentary.
+
+Text to refine:
+
+{text}
