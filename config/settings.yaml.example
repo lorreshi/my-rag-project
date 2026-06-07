@@ -1,19 +1,24 @@
-# Smart Knowledge Hub — Main Configuration
-# See DEV_SPEC.md §5.5 for full reference.
+# Smart Knowledge Hub — Configuration Template
+# Copy this file to settings.yaml and fill in your credentials.
 
 llm:
-  provider: azure           # azure | openai | ollama | deepseek
+  provider: openai          # azure | openai | ollama | deepseek
   model: gpt-4o
-  azure_endpoint: ""
   api_key: ""
+  base_url: ""              # Leave empty for official OpenAI; set for compatible endpoints
+  azure_endpoint: ""
 
 embedding:
   provider: openai          # openai | azure | ollama
   model: text-embedding-3-small
+  api_key: ""
+  base_url: ""
 
 vision_llm:
   provider: azure           # azure | dashscope
   model: gpt-4o
+  api_key: ""
+  azure_endpoint: ""
 
 vector_store:
   backend: chroma           # chroma | qdrant | pinecone

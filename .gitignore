@@ -17,6 +17,9 @@ ENV/
 .env
 .env.local
 
+# Secrets in config (keep template, ignore real settings)
+config/settings.yaml
+
 # IDE
 .vscode/
 .idea/
