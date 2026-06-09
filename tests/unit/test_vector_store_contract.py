@@ -43,6 +43,13 @@ class InMemoryVectorStore(BaseVectorStore):
             del self._store[rid]
         return len(to_delete)
 
+    def get_by_ids(self, ids):
+        return [
+            {"id": r.id, "text": r.text, "metadata": r.metadata}
+            for rid in ids
+            if (r := self._store.get(rid)) is not None
+        ]
+
     @property
     def backend_name(self) -> str:
         return "in_memory"
@@ -110,6 +117,25 @@ class TestBaseVectorStoreInterface:
         store.upsert([VectorRecord(id="m", vector=[0.0], metadata={"k": "v"})])
         results = store.query(vector=[0.0])
         assert results[0].metadata == {"k": "v"}
+
+    def test_get_by_ids(self):
+        store = InMemoryVectorStore()
+        store.upsert([
+            VectorRecord(id="1", vector=[0.0], text="one", metadata={"p": 1}),
+            VectorRecord(id="2", vector=[0.0], text="two", metadata={"p": 2}),
+        ])
+        records = store.get_by_ids(["1", "2"])
+        assert len(records) == 2
+        by_id = {r["id"]: r for r in records}
+        assert by_id["1"]["text"] == "one"
+        assert by_id["2"]["metadata"] == {"p": 2}
+
+    def test_get_by_ids_missing_omitted(self):
+        store = InMemoryVectorStore()
+        store.upsert([VectorRecord(id="1", vector=[0.0], text="one")])
+        records = store.get_by_ids(["1", "missing"])
+        assert len(records) == 1
+        assert records[0]["id"] == "1"
 
 
 @pytest.mark.unit

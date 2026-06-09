@@ -42,6 +42,9 @@ class FakeVectorStore(BaseVectorStore):
     def delete_by_metadata(self, filter, trace=None):
         return 0
 
+    def get_by_ids(self, ids):
+        return []
+
     @property
     def backend_name(self):
         return "fake"

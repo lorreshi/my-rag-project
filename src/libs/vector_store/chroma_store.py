@@ -103,6 +103,23 @@ class ChromaStore(BaseVectorStore):
         self._collection.delete(ids=ids)
         return len(ids)
 
+    def get_by_ids(self, ids: list[str]) -> list[dict[str, Any]]:
+        if not ids:
+            return []
+        results = self._collection.get(ids=ids)
+        records: list[dict[str, Any]] = []
+        if results and results.get("ids"):
+            got_ids = results["ids"]
+            documents = results.get("documents") or [""] * len(got_ids)
+            metadatas = results.get("metadatas") or [{}] * len(got_ids)
+            for i, rid in enumerate(got_ids):
+                records.append({
+                    "id": rid,
+                    "text": documents[i] or "",
+                    "metadata": metadatas[i] or {},
+                })
+        return records
+
     @property
     def backend_name(self) -> str:
         return "chroma"
