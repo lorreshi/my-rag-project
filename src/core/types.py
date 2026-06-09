@@ -177,3 +177,41 @@ class ChunkRecord:
             dense_vector=data.get("dense_vector", []),
             sparse_vector=data.get("sparse_vector", {}),
         )
+
+
+@dataclass
+class RetrievalResult:
+    """A single retrieval result — output of the retrieval stage.
+
+    Unified result shape produced by DenseRetriever, SparseRetriever, Fusion,
+    and HybridSearch, and consumed by Reranker / ResponseBuilder.
+
+    Attributes:
+        chunk_id: ID of the retrieved chunk.
+        score: Relevance score (semantics depend on the producing stage:
+            cosine similarity for dense, BM25 for sparse, RRF for fusion, etc.).
+        text: The chunk's text content.
+        metadata: The chunk's metadata.
+    """
+
+    chunk_id: str
+    score: float = 0.0
+    text: str = ""
+    metadata: dict[str, Any] = field(default_factory=dict)
+
+    def to_dict(self) -> dict[str, Any]:
+        return {
+            "chunk_id": self.chunk_id,
+            "score": self.score,
+            "text": self.text,
+            "metadata": self.metadata,
+        }
+
+    @classmethod
+    def from_dict(cls, data: dict[str, Any]) -> "RetrievalResult":
+        return cls(
+            chunk_id=data["chunk_id"],
+            score=data.get("score", 0.0),
+            text=data.get("text", ""),
+            metadata=data.get("metadata", {}),
+        )
