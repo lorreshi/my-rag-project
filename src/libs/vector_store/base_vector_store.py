@@ -74,6 +74,20 @@ class BaseVectorStore(ABC):
         """Delete records matching the metadata filter. Returns count deleted."""
         ...
 
+    @abstractmethod
+    def get_by_ids(self, ids: list[str]) -> list[dict[str, Any]]:
+        """Fetch records by their IDs.
+
+        Args:
+            ids: List of record IDs to fetch.
+
+        Returns:
+            List of dicts each containing at least ``id``, ``text``, and
+            ``metadata``. Missing IDs are omitted (no error). Order is not
+            guaranteed to match the input.
+        """
+        ...
+
     @property
     @abstractmethod
     def backend_name(self) -> str:
