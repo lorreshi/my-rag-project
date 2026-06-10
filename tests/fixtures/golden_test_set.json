@@ -1,0 +1,29 @@
+{
+  "test_cases": [
+    {
+      "query": "如何配置 Azure OpenAI？",
+      "expected_chunk_ids": ["chunk_azure_001", "chunk_azure_002"],
+      "expected_sources": ["config_guide.pdf"]
+    },
+    {
+      "query": "What is Reciprocal Rank Fusion?",
+      "expected_chunk_ids": ["chunk_rrf_001"],
+      "expected_sources": ["retrieval.pdf"]
+    },
+    {
+      "query": "vector database similarity search",
+      "expected_chunk_ids": ["chunk_vec_001", "chunk_vec_002"],
+      "expected_sources": ["vectordb.pdf"]
+    },
+    {
+      "query": "BM25 keyword retrieval explained",
+      "expected_chunk_ids": ["chunk_bm25_001"],
+      "expected_sources": ["retrieval.pdf"]
+    },
+    {
+      "query": "cross-encoder reranking model",
+      "expected_chunk_ids": ["chunk_rerank_001"],
+      "expected_sources": ["rerank.pdf"]
+    }
+  ]
+}
