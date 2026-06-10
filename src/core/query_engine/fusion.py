@@ -94,6 +94,7 @@ class ReciprocalRankFusion:
                     "num_lists": len(result_lists),
                     "fused_count": len(fused),
                     "k": self._k,
+                    "method": "rrf",
                     "algorithm": "rrf",
                 }
             )

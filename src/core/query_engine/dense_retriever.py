@@ -110,6 +110,7 @@ class DenseRetriever:
             trace.end_stage(
                 details={
                     "count": len(results),
+                    "method": "vector_search",
                     "provider": self._embedding.provider_name,
                 }
             )

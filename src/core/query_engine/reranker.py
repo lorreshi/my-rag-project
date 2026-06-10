@@ -140,6 +140,7 @@ class Reranker:
             trace.end_stage(
                 details={
                     "backend": backend_name,
+                    "method": backend_name,
                     "fallback": fallback,
                     "count": len(result),
                 }
