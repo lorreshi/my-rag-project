@@ -120,6 +120,41 @@ class ChromaStore(BaseVectorStore):
                 })
         return records
 
+    def get_by_metadata(self, filter: dict[str, Any]) -> list[dict[str, Any]]:
+        """Fetch all records matching a metadata filter.
+
+        Returns a list of dicts with ``id``, ``text``, and ``metadata``.
+        An empty/None filter returns all records in the collection.
+        """
+        kwargs: dict[str, Any] = {}
+        if filter:
+            kwargs["where"] = filter
+        results = self._collection.get(**kwargs)
+        records: list[dict[str, Any]] = []
+        if results and results.get("ids"):
+            ids = results["ids"]
+            documents = results.get("documents") or [""] * len(ids)
+            metadatas = results.get("metadatas") or [{}] * len(ids)
+            for i, rid in enumerate(ids):
+                records.append({
+                    "id": rid,
+                    "text": documents[i] or "",
+                    "metadata": metadatas[i] or {},
+                })
+        return records
+
+    def count(self) -> int:
+        """Return the number of records in the collection."""
+        return self._collection.count()
+
+    def get_collection_stats(self) -> dict[str, Any]:
+        """Return basic statistics about the collection."""
+        return {
+            "backend": "chroma",
+            "collection": self._collection.name,
+            "chunk_count": self._collection.count(),
+        }
+
     @property
     def backend_name(self) -> str:
         return "chroma"
