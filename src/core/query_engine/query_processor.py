@@ -96,6 +96,7 @@ class QueryProcessor:
         if trace:
             trace.end_stage(
                 details={
+                    "method": "keyword_extraction",
                     "num_keywords": len(keywords),
                     "has_filters": bool(parsed_filters),
                 }

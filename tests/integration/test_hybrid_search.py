@@ -154,3 +154,114 @@ class TestTrace:
         stages = {s.name: s for s in trace.stages}
         assert "hybrid_search" in stages
         assert stages["hybrid_search"].details["final_count"] == 2
+
+
+# ---------------------------------------------------------------------------
+# F3: Query-pipeline tracing
+# ---------------------------------------------------------------------------
+
+from src.core.query_engine.reranker import Reranker
+from src.libs.reranker.base_reranker import BaseReranker
+
+
+class _ReverseBackend(BaseReranker):
+    def rerank(self, query, candidates, trace=None):
+        out = list(reversed(candidates))
+        for i, c in enumerate(out):
+            c.score = float(len(out) - i)
+        return out
+
+    @property
+    def backend_name(self):
+        return "reverse"
+
+
+class TestQueryTracing:
+    def _real_hybrid(self):
+        """HybridSearch wired with REAL retrievers over fakes (records stages)."""
+        from src.core.query_engine.dense_retriever import DenseRetriever
+        from src.core.query_engine.sparse_retriever import SparseRetriever
+        from src.core.query_engine.query_processor import QueryProcessor
+        from src.libs.vector_store.base_vector_store import BaseVectorStore, QueryResult
+
+        class FakeEmbedding:
+            def embed(self, texts, trace=None):
+                return [[0.1, 0.2, 0.3] for _ in texts]
+
+            @property
+            def provider_name(self):
+                return "fake"
+
+            @property
+            def dimension(self):
+                return 3
+
+        class FakeStore(BaseVectorStore):
+            def upsert(self, records, trace=None):
+                return 0
+
+            def query(self, vector, top_k=10, filters=None, trace=None):
+                return [QueryResult(id="a", score=0.9, text="alpha", metadata={})]
+
+            def delete_by_metadata(self, filter, trace=None):
+                return 0
+
+            def get_by_ids(self, ids):
+                return [{"id": i, "text": "t", "metadata": {}} for i in ids]
+
+            @property
+            def backend_name(self):
+                return "fake"
+
+        class FakeBM25:
+            def query(self, keywords, top_k=10):
+                return [("a", 1.2), ("b", 0.8)]
+
+        store = FakeStore()
+        dense = DenseRetriever(embedding_client=FakeEmbedding(), vector_store=store)
+        sparse = SparseRetriever(bm25_indexer=FakeBM25(), vector_store=store)
+        return HybridSearch(
+            query_processor=QueryProcessor(),
+            dense_retriever=dense,
+            sparse_retriever=sparse,
+            fusion=ReciprocalRankFusion(k=60),
+        )
+
+    def test_trace_type_is_query(self):
+        hs = self._real_hybrid()
+        trace = TraceContext(trace_type="query")
+        hs.search("vector search query", trace=trace)
+        assert trace.to_dict()["trace_type"] == "query"
+
+    def test_all_query_stages_present(self):
+        hs = self._real_hybrid()
+        trace = TraceContext(trace_type="query")
+        hs.search("configure azure endpoint", trace=trace)
+        # Add rerank stage too
+        reranker = Reranker(backend=_ReverseBackend())
+        reranker.rerank("configure azure endpoint", [_r("a"), _r("b")], trace=trace)
+
+        stage_names = {s.name for s in trace.stages}
+        for expected in (
+            "query_processing", "dense_retrieval", "sparse_retrieval",
+            "fusion", "rerank",
+        ):
+            assert expected in stage_names, f"missing stage {expected}"
+
+    def test_stages_have_method_field(self):
+        hs = self._real_hybrid()
+        trace = TraceContext(trace_type="query")
+        hs.search("vector database search", trace=trace)
+        by_name = {s.name: s for s in trace.stages}
+        assert by_name["query_processing"].details.get("method")
+        assert by_name["dense_retrieval"].details.get("method")
+        assert by_name["sparse_retrieval"].details.get("method")
+        assert by_name["fusion"].details.get("method")
+
+    def test_stages_have_elapsed_ms(self):
+        hs = self._real_hybrid()
+        trace = TraceContext(trace_type="query")
+        hs.search("q test", trace=trace)
+        trace.finish()
+        for stage in trace.to_dict()["stages"]:
+            assert "elapsed_ms" in stage
