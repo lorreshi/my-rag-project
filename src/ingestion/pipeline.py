@@ -56,6 +56,7 @@ class IngestionResult:
     total_images: int = 0
     vector_ids: list[str] = field(default_factory=list)
     error: str = ""
+    trace: dict[str, Any] = field(default_factory=dict)
 
 
 class IngestionPipeline:
@@ -174,6 +175,10 @@ class IngestionPipeline:
         if self._integrity is not None and file_hash:
             self._integrity.mark_success(file_hash, source_path, result.total_chunks)
 
+        trace.set_metadata(source_path=source_path, collection=collection)
+        trace.finish()
+        result.trace = trace.to_dict()
+
         logger.info(
             "Ingested %s: %d chunks, %d images (trace=%s)",
             source_path, result.total_chunks, result.total_images, trace.trace_id,
@@ -185,16 +190,28 @@ class IngestionPipeline:
     # ------------------------------------------------------------------
 
     def _load(self, source_path: str, trace: TraceContext) -> Document:
+        trace.start_stage("load")
         try:
-            return self._loader.load(source_path)
+            document = self._loader.load(source_path)
         except Exception as exc:
+            trace.end_stage(details={"method": "markitdown", "error": str(exc)})
             raise IngestionError(f"Load stage failed: {exc}") from exc
+        trace.end_stage(details={
+            "method": "markitdown",
+            "text_length": len(document.text),
+            "num_images": len(document.images),
+        })
+        return document
 
     def _split(self, document: Document, trace: TraceContext) -> list[Chunk]:
+        trace.start_stage("split")
         try:
-            return self._chunker.split_document(document)
+            chunks = self._chunker.split_document(document)
         except Exception as exc:
+            trace.end_stage(details={"method": "recursive", "error": str(exc)})
             raise IngestionError(f"Split stage failed: {exc}") from exc
+        trace.end_stage(details={"method": "recursive", "num_chunks": len(chunks)})
+        return chunks
 
     def _transform(
         self,
@@ -202,23 +219,33 @@ class IngestionPipeline:
         trace: TraceContext,
         progress: ProgressCallback,
     ) -> list[Chunk]:
+        trace.start_stage("transform")
         total = len(self._transforms)
+        applied: list[str] = []
         for i, transform in enumerate(self._transforms):
+            name = getattr(transform, "name", str(transform))
             try:
                 progress("transform", i, total)
                 chunks = transform.transform(chunks, trace=trace)
+                applied.append(name)
             except Exception as exc:
+                trace.end_stage(details={"method": "+".join(applied), "error": str(exc)})
                 raise IngestionError(
-                    f"Transform stage '{getattr(transform, 'name', transform)}' failed: {exc}"
+                    f"Transform stage '{name}' failed: {exc}"
                 ) from exc
         progress("transform", total, total)
+        trace.end_stage(details={"method": "+".join(applied) or "none", "num_transforms": total})
         return chunks
 
     def _encode(self, chunks: list[Chunk], trace: TraceContext):
+        trace.start_stage("embed")
         try:
-            return self._batch.process(chunks, trace=trace)
+            encoded = self._batch.process(chunks, trace=trace)
         except Exception as exc:
+            trace.end_stage(details={"method": "dense+sparse", "error": str(exc)})
             raise IngestionError(f"Encode stage failed: {exc}") from exc
+        trace.end_stage(details={"method": "dense+sparse", "num_encoded": len(encoded)})
+        return encoded
 
     def _store(
         self,
@@ -227,6 +254,7 @@ class IngestionPipeline:
         document: Document,
         trace: TraceContext,
     ) -> list[str]:
+        trace.start_stage("upsert")
         try:
             chunks = [e.chunk for e in encoded]
             dense_vectors = [e.dense_vector for e in encoded]
@@ -241,15 +269,24 @@ class IngestionPipeline:
                 self._bm25.save()
 
             # 3. Image storage
+            num_images = 0
             if self._image_storage is not None:
-                self._store_images(document, collection)
+                num_images = self._store_images(document, collection)
 
+            trace.end_stage(details={
+                "method": "chroma",
+                "upserted": len(vector_ids),
+                "bm25_docs": len(sparse_vectors),
+                "images_stored": num_images,
+            })
             return vector_ids
         except Exception as exc:
+            trace.end_stage(details={"method": "chroma", "error": str(exc)})
             raise IngestionError(f"Store stage failed: {exc}") from exc
 
-    def _store_images(self, document: Document, collection: str) -> None:
+    def _store_images(self, document: Document, collection: str) -> int:
         doc_hash = document.metadata.get("doc_hash", "")
+        stored = 0
         for img in document.images:
             if img.path:
                 try:
@@ -260,8 +297,10 @@ class IngestionPipeline:
                         doc_hash=doc_hash,
                         page_num=img.page,
                     )
+                    stored += 1
                 except FileNotFoundError:
                     logger.warning("Image file missing, skipping: %s", img.path)
+        return stored
 
     # ------------------------------------------------------------------
     # Factory
