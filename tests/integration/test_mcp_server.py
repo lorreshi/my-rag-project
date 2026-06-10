@@ -202,3 +202,111 @@ class TestQueryKnowledgeHubTool:
             json.loads(_make_request("tools/call", {"name": "query_knowledge_hub", "arguments": {"query": "hi"}}))
         )
         assert "content" in called["result"]
+
+
+# ---------------------------------------------------------------------------
+# E6: multimodal (image) response assembly
+# ---------------------------------------------------------------------------
+
+import base64 as _base64
+
+from src.core.response.multimodal_assembler import MultimodalAssembler
+
+
+class _FakeResolver:
+    def __init__(self, mapping):
+        self._mapping = mapping  # {image_id: path}
+
+    def get_path(self, image_id):
+        return self._mapping.get(image_id)
+
+
+_PNG_BYTES = b"\x89PNG\r\n\x1a\n fake png data"
+
+
+def _img_file(tmp_path, name="i1.png"):
+    p = tmp_path / name
+    p.write_bytes(_PNG_BYTES)
+    return str(p)
+
+
+class TestMultimodalAssembler:
+    def test_appends_image_content(self, tmp_path):
+        path = _img_file(tmp_path)
+        assembler = MultimodalAssembler(_FakeResolver({"i1": path}))
+        response = {"content": [{"type": "text", "text": "answer"}]}
+        results = [_qr("c0", 0.9, "txt", {"image_refs": ["i1"]})]
+        out = assembler.assemble(response, results)
+        image_items = [c for c in out["content"] if c["type"] == "image"]
+        assert len(image_items) == 1
+
+    def test_image_content_is_base64(self, tmp_path):
+        path = _img_file(tmp_path)
+        assembler = MultimodalAssembler(_FakeResolver({"i1": path}))
+        response = {"content": []}
+        results = [_qr("c0", 0.9, meta={"image_refs": ["i1"]})]
+        out = assembler.assemble(response, results)
+        img = [c for c in out["content"] if c["type"] == "image"][0]
+        assert img["data"] == _base64.b64encode(_PNG_BYTES).decode("utf-8")
+
+    def test_mime_type_png(self, tmp_path):
+        path = _img_file(tmp_path, "pic.png")
+        assembler = MultimodalAssembler(_FakeResolver({"i1": path}))
+        out = assembler.assemble({"content": []}, [_qr("c0", 0.9, meta={"image_refs": ["i1"]})])
+        img = [c for c in out["content"] if c["type"] == "image"][0]
+        assert img["mimeType"] == "image/png"
+
+    def test_mime_type_jpeg(self, tmp_path):
+        path = _img_file(tmp_path, "pic.jpg")
+        assembler = MultimodalAssembler(_FakeResolver({"i1": path}))
+        out = assembler.assemble({"content": []}, [_qr("c0", 0.9, meta={"image_refs": ["i1"]})])
+        img = [c for c in out["content"] if c["type"] == "image"][0]
+        assert img["mimeType"] == "image/jpeg"
+
+    def test_text_preserved_before_image(self, tmp_path):
+        path = _img_file(tmp_path)
+        assembler = MultimodalAssembler(_FakeResolver({"i1": path}))
+        response = {"content": [{"type": "text", "text": "answer"}]}
+        out = assembler.assemble(response, [_qr("c0", 0.9, meta={"image_refs": ["i1"]})])
+        assert out["content"][0]["type"] == "text"
+        assert out["content"][1]["type"] == "image"
+
+    def test_no_images_no_change(self):
+        assembler = MultimodalAssembler(_FakeResolver({}))
+        response = {"content": [{"type": "text", "text": "answer"}]}
+        out = assembler.assemble(response, [_qr("c0", 0.9, meta={})])
+        assert len(out["content"]) == 1
+
+    def test_missing_file_skipped(self):
+        assembler = MultimodalAssembler(_FakeResolver({"i1": "/nonexistent.png"}))
+        out = assembler.assemble({"content": []}, [_qr("c0", 0.9, meta={"image_refs": ["i1"]})])
+        assert all(c["type"] != "image" for c in out["content"])
+
+    def test_unresolved_id_skipped(self):
+        assembler = MultimodalAssembler(_FakeResolver({}))
+        out = assembler.assemble({"content": []}, [_qr("c0", 0.9, meta={"image_refs": ["missing"]})])
+        assert all(c["type"] != "image" for c in out["content"])
+
+    def test_dedup_images(self, tmp_path):
+        path = _img_file(tmp_path)
+        assembler = MultimodalAssembler(_FakeResolver({"i1": path}))
+        results = [
+            _qr("c0", 0.9, meta={"image_refs": ["i1"]}),
+            _qr("c1", 0.8, meta={"image_refs": ["i1"]}),
+        ]
+        out = assembler.assemble({"content": []}, results)
+        assert len([c for c in out["content"] if c["type"] == "image"]) == 1
+
+    def test_max_images_cap(self, tmp_path):
+        paths = {f"i{i}": _img_file(tmp_path, f"i{i}.png") for i in range(5)}
+        assembler = MultimodalAssembler(_FakeResolver(paths), max_images=2)
+        results = [_qr(f"c{i}", 0.9, meta={"image_refs": [f"i{i}"]}) for i in range(5)]
+        out = assembler.assemble({"content": []}, results)
+        assert len([c for c in out["content"] if c["type"] == "image"]) == 2
+
+    def test_images_dict_fallback(self, tmp_path):
+        path = _img_file(tmp_path)
+        assembler = MultimodalAssembler(_FakeResolver({"i1": path}))
+        results = [_qr("c0", 0.9, meta={"images": [{"id": "i1", "path": path}]})]
+        out = assembler.assemble({"content": []}, results)
+        assert len([c for c in out["content"] if c["type"] == "image"]) == 1
