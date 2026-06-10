@@ -176,3 +176,41 @@ class TestErrorHandling:
         bad.write_text("not a pdf")
         with pytest.raises(IngestionError):
             pipeline.run(str(bad), collection="test")
+
+
+# ---------------------------------------------------------------------------
+# F4: Ingestion pipeline tracing
+# ---------------------------------------------------------------------------
+
+class TestIngestionTracing:
+    def test_trace_type_is_ingestion(self, tmp_path):
+        pipeline, _ = _build_pipeline(tmp_path)
+        result = pipeline.run(str(SIMPLE_PDF), collection="test")
+        assert result.trace["trace_type"] == "ingestion"
+
+    def test_all_ingestion_stages_present(self, tmp_path):
+        pipeline, _ = _build_pipeline(tmp_path)
+        result = pipeline.run(str(SIMPLE_PDF), collection="test")
+        stage_names = {s["name"] for s in result.trace["stages"]}
+        for expected in ("load", "split", "transform", "embed", "upsert"):
+            assert expected in stage_names, f"missing stage {expected}"
+
+    def test_stages_have_method(self, tmp_path):
+        pipeline, _ = _build_pipeline(tmp_path)
+        result = pipeline.run(str(SIMPLE_PDF), collection="test")
+        by_name = {s["name"]: s for s in result.trace["stages"]}
+        assert by_name["load"]["details"].get("method") == "markitdown"
+        assert by_name["split"]["details"].get("method") == "recursive"
+        assert by_name["upsert"]["details"].get("method") == "chroma"
+
+    def test_stages_have_elapsed_ms(self, tmp_path):
+        pipeline, _ = _build_pipeline(tmp_path)
+        result = pipeline.run(str(SIMPLE_PDF), collection="test")
+        for stage in result.trace["stages"]:
+            assert "elapsed_ms" in stage
+
+    def test_total_elapsed_present(self, tmp_path):
+        pipeline, _ = _build_pipeline(tmp_path)
+        result = pipeline.run(str(SIMPLE_PDF), collection="test")
+        assert "total_elapsed_ms" in result.trace
+        assert result.trace["finished_at"] is not None
