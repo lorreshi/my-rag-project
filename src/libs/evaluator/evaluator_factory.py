@@ -17,6 +17,15 @@ _REGISTRY: dict[str, Callable[["Settings"], BaseEvaluator]] = {
 }
 
 
+def _lazy_ragas(settings: "Settings") -> BaseEvaluator:
+    """Build a RagasEvaluator lazily (avoids importing ragas at module load)."""
+    from src.observability.evaluation.ragas_evaluator import _create_ragas
+    return _create_ragas(settings)
+
+
+_REGISTRY["ragas"] = _lazy_ragas
+
+
 def register_backend(
     name: str, factory_fn: Callable[["Settings"], BaseEvaluator]
 ) -> None:
