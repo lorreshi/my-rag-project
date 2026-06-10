@@ -107,3 +107,98 @@ class TestServerLoopInProcess:
         assert len(out) == 2
         assert out[0]["id"] == 1
         assert out[1]["id"] == 2
+
+
+# ---------------------------------------------------------------------------
+# E3: query_knowledge_hub tool
+# ---------------------------------------------------------------------------
+
+from src.core.types import RetrievalResult
+from src.mcp_server.tools.query_knowledge_hub import QueryKnowledgeHubTool
+
+
+class _FakeHybrid:
+    def __init__(self, results):
+        self._results = results
+        self.calls = []
+
+    def search(self, query, top_k=10, filters=None, trace=None):
+        self.calls.append({"query": query, "top_k": top_k, "filters": filters})
+        return list(self._results)
+
+
+def _qr(cid, score, text="", meta=None):
+    return RetrievalResult(chunk_id=cid, score=score, text=text or cid, metadata=meta or {})
+
+
+class TestQueryKnowledgeHubTool:
+    def test_returns_markdown_with_citations(self):
+        hybrid = _FakeHybrid([
+            _qr("c0", 0.9, "alpha text", {"source_path": "a.pdf", "page": 1}),
+            _qr("c1", 0.8, "beta text", {"source_path": "b.pdf", "page": 2}),
+        ])
+        tool = QueryKnowledgeHubTool(hybrid_search=hybrid, reranker=None)
+        result = tool({"query": "test"})
+        text = result["content"][0]["text"]
+        assert "[1]" in text and "[2]" in text
+
+    def test_structured_citations_fields(self):
+        hybrid = _FakeHybrid([_qr("c0", 0.95, "txt", {"source_path": "a.pdf", "page": 7})])
+        tool = QueryKnowledgeHubTool(hybrid_search=hybrid, reranker=None)
+        result = tool({"query": "test"})
+        cite = result["structuredContent"]["citations"][0]
+        assert cite["source"] == "a.pdf"
+        assert cite["page"] == 7
+        assert cite["chunk_id"] == "c0"
+        assert "score" in cite
+
+    def test_no_results_friendly(self):
+        tool = QueryKnowledgeHubTool(hybrid_search=_FakeHybrid([]), reranker=None)
+        result = tool({"query": "nothing"})
+        assert result["structuredContent"]["citations"] == []
+        assert result["content"][0]["text"].strip() != ""
+
+    def test_collection_forwarded(self):
+        hybrid = _FakeHybrid([_qr("c0", 0.9)])
+        tool = QueryKnowledgeHubTool(hybrid_search=hybrid, reranker=None)
+        tool({"query": "q", "collection": "mycoll"})
+        assert hybrid.calls[0]["filters"] == {"collection": "mycoll"}
+
+    def test_missing_query_raises(self):
+        from src.mcp_server.protocol_handler import InvalidParams
+        tool = QueryKnowledgeHubTool(hybrid_search=_FakeHybrid([]), reranker=None)
+        with pytest.raises(InvalidParams):
+            tool({})
+
+    def test_invalid_top_k_raises(self):
+        from src.mcp_server.protocol_handler import InvalidParams
+        tool = QueryKnowledgeHubTool(hybrid_search=_FakeHybrid([]), reranker=None)
+        with pytest.raises(InvalidParams):
+            tool({"query": "q", "top_k": -1})
+
+    def test_reranker_applied(self):
+        hybrid = _FakeHybrid([_qr("c0", 0.5), _qr("c1", 0.9)])
+
+        class _Rev:
+            def rerank(self, query, candidates, top_k=None, trace=None):
+                out = list(reversed(candidates))
+                return out[:top_k] if top_k else out
+
+        tool = QueryKnowledgeHubTool(hybrid_search=hybrid, reranker=_Rev())
+        result = tool({"query": "q"})
+        # reversed order -> c1 first in citations
+        assert result["structuredContent"]["citations"][0]["chunk_id"] == "c1"
+
+    def test_registers_with_handler(self):
+        handler = ProtocolHandler()
+        tool = QueryKnowledgeHubTool(hybrid_search=_FakeHybrid([_qr("c0", 0.9)]), reranker=None)
+        tool.register(handler)
+        # tools/list shows it
+        listed = handler.handle(json.loads(_make_request("tools/list")))
+        names = [t["name"] for t in listed["result"]["tools"]]
+        assert "query_knowledge_hub" in names
+        # tools/call routes to it
+        called = handler.handle(
+            json.loads(_make_request("tools/call", {"name": "query_knowledge_hub", "arguments": {"query": "hi"}}))
+        )
+        assert "content" in called["result"]
