@@ -9,8 +9,12 @@
 python -m venv .venv
 source .venv/bin/activate   # macOS/Linux
 
-# 安装依赖
-pip install -e ".[dev]"
+# 安装依赖（二选一）
+pip install -r requirements.txt     # 使用锁定版本（推荐，和开发环境完全一致）
+pip install -e ".[dev]"             # 使用 pyproject.toml（宽松版本，仅基础依赖）
+
+# 复制配置模板并填入你的密钥
+cp config/settings.yaml.example config/settings.yaml
 
 # 验证安装
 python -c "import src.mcp_server; import src.core; import src.ingestion; import src.libs; import src.observability"
