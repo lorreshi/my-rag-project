@@ -19,10 +19,10 @@ class TestLoadSettings:
     """load_settings reads YAML and returns a Settings object."""
 
     def test_load_default_config(self):
-        """The shipped config/settings.yaml should load without error."""
-        settings = load_settings("config/settings.yaml")
+        """The shipped config/settings.yaml.example should load without error."""
+        settings = load_settings("config/settings.yaml.example")
         assert isinstance(settings, Settings)
-        assert settings.llm.provider == "azure"
+        assert settings.llm.provider == "openai"
         assert settings.embedding.model == "text-embedding-3-small"
         assert settings.vector_store.backend == "chroma"
 
