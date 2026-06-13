@@ -27,6 +27,10 @@ config/settings.yaml
 *.swo
 *~
 
+# Agent / tooling local files
+.github/
+.claude/skills/project-review/
+
 # OS
 .DS_Store
 Thumbs.db
