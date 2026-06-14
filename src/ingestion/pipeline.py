@@ -259,6 +259,11 @@ class IngestionPipeline:
             chunks = [e.chunk for e in encoded]
             dense_vectors = [e.dense_vector for e in encoded]
 
+            # Tag each chunk with its target collection so the vector store can
+            # filter by collection at query time (where={"collection": ...}).
+            for chunk in chunks:
+                chunk.metadata["collection"] = collection
+
             # 1. Vector store (dense)
             vector_ids = self._upserter.upsert(chunks, dense_vectors, trace=trace)
 
