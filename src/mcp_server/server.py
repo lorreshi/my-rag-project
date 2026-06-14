@@ -88,9 +88,30 @@ class MCPServer:
         return self._handler.handle(request)
 
 
+def _build_default_handler() -> "ProtocolHandler":
+    """Build a ProtocolHandler with the built-in tools registered.
+
+    Tool registration is best-effort: failures are logged to stderr and the
+    server still starts (see ``register_default_tools``).
+    """
+    from src.mcp_server.protocol_handler import ProtocolHandler
+    from src.mcp_server.tools.registry import register_default_tools
+
+    handler = ProtocolHandler(
+        server_name=SERVER_NAME,
+        server_version=SERVER_VERSION,
+        protocol_version=PROTOCOL_VERSION,
+    )
+    try:
+        register_default_tools(handler)
+    except Exception:  # config load failure etc. — start with no tools
+        logger.exception("Tool registration failed; starting with no tools")
+    return handler
+
+
 def main() -> int:
     """Console entry point."""
-    server = MCPServer()
+    server = MCPServer(handler=_build_default_handler())
     try:
         server.serve_forever()
     except KeyboardInterrupt:  # pragma: no cover
