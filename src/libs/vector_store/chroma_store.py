@@ -44,8 +44,9 @@ class ChromaStore(BaseVectorStore):
         ids = [r.id for r in records]
         embeddings = [r.vector for r in records]
         documents = [r.text for r in records]
-        # Chroma rejects empty dicts — pass None instead
-        metadatas = [r.metadata if r.metadata else None for r in records]
+        # Chroma only accepts scalar metadata values — sanitize first.
+        # Empty dicts must be passed as None (Chroma rejects {}).
+        metadatas = [self._sanitize_metadata(r.metadata) or None for r in records]
 
         self._collection.upsert(
             ids=ids,
@@ -54,6 +55,41 @@ class ChromaStore(BaseVectorStore):
             metadatas=metadatas,
         )
         return len(records)
+
+    @staticmethod
+    def _sanitize_metadata(metadata: dict[str, Any] | None) -> dict[str, Any]:
+        """Coerce metadata into Chroma-compatible scalar values.
+
+        Chroma only accepts scalar metadata (str/int/float/bool). This method:
+        - Drops the full ``images`` object list (image details live in the
+          ImageStorage SQLite index + filesystem, not in the vector store).
+        - Flattens ``image_refs`` (list of image ids) into a comma-separated
+          string so it survives the round-trip and can be split back on read.
+        - Coerces any other list/dict value into a comma-joined / string form
+          rather than letting Chroma reject the whole upsert.
+        - Skips ``None`` values entirely.
+        """
+        if not metadata:
+            return {}
+
+        clean: dict[str, Any] = {}
+        for key, value in metadata.items():
+            if key == "images":
+                # Redundant in the vector store; resolved via ImageStorage.
+                continue
+            if value is None:
+                continue
+            if isinstance(value, (str, int, float, bool)):
+                clean[key] = value
+            elif isinstance(value, (list, tuple)):
+                # e.g. image_refs / tags -> "a,b,c"
+                clean[key] = ",".join(str(v) for v in value)
+            elif isinstance(value, dict):
+                # Last-resort: stringify nested dicts to avoid rejection.
+                clean[key] = str(value)
+            else:
+                clean[key] = str(value)
+        return clean
 
     def query(
         self,
