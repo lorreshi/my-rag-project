@@ -48,26 +48,22 @@ def _chunk(text: str, source_path: str = "doc.pdf", index: int = 0, cid: str = "
     )
 
 
-class TestDeterministicId:
-    def test_same_content_same_id(self):
-        c1 = _chunk("hello world", "doc.pdf", 0)
-        c2 = _chunk("hello world", "doc.pdf", 0)
+class TestVectorId:
+    """The vector store id must equal chunk.id (shared id space with BM25)."""
+
+    def test_vector_id_is_chunk_id(self):
+        c = _chunk("hello world", "doc.pdf", 0, cid="pdf_abc_0000_deadbeef")
+        assert VectorUpserter.make_vector_id(c) == "pdf_abc_0000_deadbeef"
+
+    def test_distinct_chunk_ids_distinct_vector_ids(self):
+        c1 = _chunk("hello world", "doc.pdf", 0, cid="pdf_abc_0000_11111111")
+        c2 = _chunk("hello there", "doc.pdf", 1, cid="pdf_abc_0001_22222222")
+        assert VectorUpserter.make_vector_id(c1) != VectorUpserter.make_vector_id(c2)
+
+    def test_same_chunk_id_same_vector_id(self):
+        c1 = _chunk("hello world", "doc.pdf", 0, cid="pdf_abc_0000_11111111")
+        c2 = _chunk("hello world", "doc.pdf", 0, cid="pdf_abc_0000_11111111")
         assert VectorUpserter.make_vector_id(c1) == VectorUpserter.make_vector_id(c2)
-
-    def test_content_change_changes_id(self):
-        c1 = _chunk("hello world", "doc.pdf", 0)
-        c2 = _chunk("hello there", "doc.pdf", 0)
-        assert VectorUpserter.make_vector_id(c1) != VectorUpserter.make_vector_id(c2)
-
-    def test_index_change_changes_id(self):
-        c1 = _chunk("same text", "doc.pdf", 0)
-        c2 = _chunk("same text", "doc.pdf", 1)
-        assert VectorUpserter.make_vector_id(c1) != VectorUpserter.make_vector_id(c2)
-
-    def test_source_change_changes_id(self):
-        c1 = _chunk("same text", "a.pdf", 0)
-        c2 = _chunk("same text", "b.pdf", 0)
-        assert VectorUpserter.make_vector_id(c1) != VectorUpserter.make_vector_id(c2)
 
 
 class TestUpsert:
@@ -95,9 +91,10 @@ class TestUpsert:
     def test_changed_content_creates_new_record(self):
         store = FakeVectorStore()
         up = VectorUpserter(store)
-        up.upsert([_chunk("v1", "d.pdf", 0)], [[1.0]])
-        up.upsert([_chunk("v2", "d.pdf", 0)], [[2.0]])
-        # different content -> different id -> 2 records
+        # Changed content -> DocumentChunker assigns a new chunk.id (content hash)
+        up.upsert([_chunk("v1", "d.pdf", 0, cid="pdf_d_0000_v1hash00")], [[1.0]])
+        up.upsert([_chunk("v2", "d.pdf", 0, cid="pdf_d_0000_v2hash00")], [[2.0]])
+        # different chunk.id -> 2 records
         assert len(store.records) == 2
 
     def test_record_contains_text_and_metadata(self):
