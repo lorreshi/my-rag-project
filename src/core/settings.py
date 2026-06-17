@@ -63,6 +63,7 @@ class RetrievalConfig:
     top_k_dense: int = 20
     top_k_sparse: int = 20
     top_k_final: int = 10
+    tokenizer: str = "jieba"  # BM25 tokenizer: jieba | regex
 
 
 @dataclass
