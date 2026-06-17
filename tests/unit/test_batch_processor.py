@@ -12,6 +12,7 @@ from src.ingestion.embedding.batch_processor import (
 )
 from src.ingestion.embedding.dense_encoder import DenseEncoder
 from src.ingestion.embedding.sparse_encoder import SparseEncoder
+from src.libs.tokenizer import JiebaTokenizer
 
 
 class FakeEmbedding:
@@ -83,7 +84,7 @@ class TestOrdering:
             assert enc.dense_vector[0] == float(len(enc.chunk.text))
 
     def test_sparse_vector_aligned(self):
-        sparse = SparseEncoder(stopwords=set())
+        sparse = SparseEncoder(tokenizer=JiebaTokenizer(stopwords=set()))
         bp = BatchProcessor(sparse_encoder=sparse, batch_size=2)
         result = bp.process(_chunks(3))
         for enc in result:

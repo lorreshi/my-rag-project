@@ -332,6 +332,7 @@ class IngestionPipeline:
         from src.libs.llm.llm_factory import LLMFactory
         from src.libs.loader.file_integrity import SQLiteIntegrityChecker
         from src.libs.loader.pdf_loader import PdfLoader
+        from src.libs.tokenizer import TokenizerFactory
         from src.libs.vector_store.vector_store_factory import VectorStoreFactory
 
         loader = overrides.get("loader") or PdfLoader()
@@ -352,7 +353,7 @@ class IngestionPipeline:
 
         embedding = overrides.get("embedding") or EmbeddingFactory.create(settings)
         dense = DenseEncoder(embedding)
-        sparse = SparseEncoder()
+        sparse = SparseEncoder(tokenizer=TokenizerFactory.create(settings))
         batch = overrides.get("batch_processor") or BatchProcessor(dense, sparse)
 
         vector_store = overrides.get("vector_store") or VectorStoreFactory.create(settings)

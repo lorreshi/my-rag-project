@@ -16,8 +16,8 @@
 
 | 任务编号 | 任务名称 | 单元测试 | 状态 | 备注 |
 |---------|---------|---------|------|------|
-| T1 | BaseTokenizer + JiebaTokenizer + 工厂/配置 | ✅ | [ ] | |
-| T2 | SparseEncoder 接入共享分词器 | ✅ | [ ] | |
+| T1 | BaseTokenizer + JiebaTokenizer + 工厂/配置 | ✅ | [x] | |
+| T2 | SparseEncoder 接入共享分词器 | ✅ | [x] | |
 | T3 | QueryProcessor 接入共享分词器 + 一致性测试 | ✅ | [ ] | Property 8 |
 | T4 | SplitPiece + BaseSplitter.split() + 向后兼容 | ✅ | [ ] | |
 | T5 | DocumentChunker 合并 per-chunk 结构化 metadata | ✅ | [ ] | |
@@ -89,7 +89,7 @@ graph TD
   - **测试方法**：`pytest -q tests/unit/test_tokenizer.py`（含中文/混合/停用词/regex 回退用例）。
   - _Requirements: 2.1, 2.3_
 
-- [ ] 2. SparseEncoder 接入共享分词器
+- [x] 2. SparseEncoder 接入共享分词器
   - **目标**：移除 `SparseEncoder` 内置字符级正则，改用注入的 `BaseTokenizer`。
   - **修改文件**：`src/ingestion/embedding/sparse_encoder.py`、`tests/unit/test_sparse_encoder.py`
   - **实现**：构造函数接收 `tokenizer: BaseTokenizer`（默认由工厂创建）；`_tokenize` 委托给分词器；删除内置 `_TOKEN_RE`。
