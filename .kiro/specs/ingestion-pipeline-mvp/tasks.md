@@ -22,7 +22,7 @@
 | T4 | SplitPiece + BaseSplitter.split() + 向后兼容 | ✅ | [x] | |
 | T5 | DocumentChunker 合并 per-chunk 结构化 metadata | ✅ | [x] | |
 | T6 | RecursiveSplitter：CJK 分隔符 + overlap 修正 | ✅ | [x] | Property 11 |
-| T7 | RecursiveSplitter：可插拔 length_fn + tiktoken + size_unit | ✅ | [ ] | Property 12 |
+| T7 | RecursiveSplitter：可插拔 length_fn + tiktoken + size_unit | ✅ | [x] | Property 12 |
 | T8 | size 配置化 + 按 collection 覆盖 | ✅ | [ ] | |
 | T9 | TableAwareSplitter（表头重复 + sheet 边界 + 结构 metadata） | ✅ | [ ] | Property 13 |
 | T10 | DocumentChunker 按 doc_type 路由 + by_doc_type 配置 | ✅ | [ ] | Property 14 |
@@ -129,7 +129,7 @@ graph TD
   - **测试方法**：`pytest -q tests/unit/test_recursive_splitter_cjk.py`（Property 11：中文长段/代码块用例）。
   - _Requirements: 4.1, 4.2, 4.6, 4.7_
 
-- [ ] 7. RecursiveSplitter：可插拔 length_fn + tiktoken + size_unit
+- [x] 7. RecursiveSplitter：可插拔 length_fn + tiktoken + size_unit
   - **目标**：切分大小度量从字符改为可插拔长度函数，默认按 token（tiktoken）。
   - **修改文件**：`src/libs/splitter/recursive_splitter.py`、`src/libs/splitter/length.py`（token/char 计数器）、`tests/unit/test_splitter_length.py`
   - **实现**：`length_fn: Callable[[str],int]` 注入，内部 `len(text)`→`self._length(text)`；`length.py` 提供 `char_length` 与基于 tiktoken 的 `token_length(encoding)`；`size_unit: token|char` 决定使用哪个（token 编码默认对齐 embedding 模型）。

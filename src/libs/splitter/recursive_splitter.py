@@ -12,9 +12,10 @@ level, so prose never degrades into single-character fragments (Property 11).
 """
 from __future__ import annotations
 
-from typing import TYPE_CHECKING
+from typing import Callable, TYPE_CHECKING
 
 from src.libs.splitter.base_splitter import BaseSplitter, SplitPiece
+from src.libs.splitter.length import token_length
 from src.libs.splitter.splitter_factory import register_splitter
 
 if TYPE_CHECKING:
@@ -53,10 +54,41 @@ class RecursiveSplitter(BaseSplitter):
         chunk_size: int = 1000,
         chunk_overlap: int = 200,
         separators: list[str] | None = None,
+        length_fn: Callable[[str], int] | None = None,
+        size_unit: str = "char",
+        token_encoding: str = "cl100k_base",
     ):
+        """Create a recursive splitter.
+
+        Args:
+            chunk_size: Maximum chunk size, measured by the active length
+                function (characters by default, tokens when ``size_unit`` is
+                ``"token"``).
+            chunk_overlap: Amount of trailing context (in the same unit) carried
+                from the previous chunk into the next.
+            separators: Custom separator hierarchy; defaults to the CJK-aware
+                :data:`_DEFAULT_SEPARATORS`.
+            length_fn: Explicit size-measuring function. When provided it takes
+                precedence over ``size_unit``.
+            size_unit: ``"char"`` (default, ``len``) or ``"token"`` (tiktoken
+                counter via ``token_encoding``). Only consulted when
+                ``length_fn`` is not given.
+            token_encoding: tiktoken encoding name used when
+                ``size_unit == "token"`` (default ``cl100k_base``, aligned with
+                the embedding model).
+        """
         self._chunk_size = chunk_size
         self._chunk_overlap = chunk_overlap
         self._separators = separators or _DEFAULT_SEPARATORS
+
+        # Resolve the size-measuring function (design §2.1b). An explicit
+        # length_fn always wins; otherwise size_unit selects char vs token.
+        if length_fn is not None:
+            self._length = length_fn
+        elif size_unit == "token":
+            self._length = token_length(token_encoding)
+        else:
+            self._length = len
 
     def split(
         self,
@@ -70,7 +102,7 @@ class RecursiveSplitter(BaseSplitter):
 
     def _split(self, text: str, separators: list[str]) -> list[str]:
         """Recursively split *text* using the first applicable separator."""
-        if len(text) <= self._chunk_size:
+        if self._length(text) <= self._chunk_size:
             return [text] if text.strip() else []
 
         # Find the best separator for this text
@@ -99,13 +131,17 @@ class RecursiveSplitter(BaseSplitter):
             piece = part if not sep else (sep + part if current else part)
             candidate = current + piece if current else piece
 
-            if len(candidate) <= self._chunk_size:
+            if self._length(candidate) <= self._chunk_size:
                 current = candidate
             else:
                 if current.strip():
                     chunks.append(current.strip())
-                # If this single piece is too large, recurse with finer separators
-                if len(piece.strip()) > self._chunk_size and remaining_seps:
+                # If this single piece is too large, recurse with finer separators.
+                # When no finer separators remain (character level), the piece is
+                # kept as-is — a structureless fallback block (the "兜底块" that
+                # Property 12 exempts from the size bound), which also guarantees
+                # token measurement can never cause an infinite loop.
+                if self._length(piece.strip()) > self._chunk_size and remaining_seps:
                     chunks.extend(self._split(piece, remaining_seps))
                     current = ""
                 else:
@@ -121,7 +157,7 @@ class RecursiveSplitter(BaseSplitter):
             for i in range(1, len(chunks)):
                 prev_tail = chunks[i - 1][-self._chunk_overlap:]
                 merged = prev_tail + chunks[i]
-                if len(merged) <= self._chunk_size:
+                if self._length(merged) <= self._chunk_size:
                     overlapped.append(merged)
                 else:
                     overlapped.append(chunks[i])
