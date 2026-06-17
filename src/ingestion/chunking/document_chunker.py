@@ -29,6 +29,18 @@ class DocumentChunker:
         self._splitter_type = splitter_type
         self._splitter = SplitterFactory.create(settings, splitter_type)
 
+        # Build the per-doc_type routing map from ``settings.splitter.by_doc_type``.
+        # Each entry maps a document ``doc_type`` (e.g. "xlsx") to a dedicated
+        # splitter instance created by the factory (e.g. "table_aware"). The
+        # getattr fallbacks keep a minimal Settings (without a ``splitter``
+        # section) working — routing is simply empty in that case.
+        splitter_cfg = getattr(settings, "splitter", None)
+        by_doc_type_cfg = getattr(splitter_cfg, "by_doc_type", None) or {}
+        self._by_doc_type = {
+            doc_type: SplitterFactory.create(settings, splitter_name)
+            for doc_type, splitter_name in by_doc_type_cfg.items()
+        }
+
     def split_document(
         self, document: Document, collection: str = "default"
     ) -> list[Chunk]:
@@ -43,9 +55,10 @@ class DocumentChunker:
         Returns:
             List of Chunk objects with IDs, metadata, and source references.
         """
-        # Resolve the effective splitter for this collection (size may be
-        # overridden per collection). Non-recursive splitters are used as-is.
-        splitter = self._resolve_splitter(collection)
+        # Route by ``doc_type``: a dedicated splitter (e.g. table_aware for
+        # xlsx) when configured, otherwise the default splitter resolved with
+        # any per-collection size override.
+        splitter = self._select_splitter(document, collection)
 
         # Use the configured splitter to get rich split pieces (text + metadata)
         pieces = splitter.split(document.text)
@@ -73,6 +86,20 @@ class DocumentChunker:
             chunks.append(chunk)
 
         return chunks
+
+    def _select_splitter(self, document: Document, collection: str):
+        """Choose the splitter for *document* based on its ``doc_type``.
+
+        When ``document.metadata["doc_type"]`` matches a key in the configured
+        ``by_doc_type`` map, the dedicated splitter (already built by the
+        factory with sizes read from settings) is used as-is. Otherwise the
+        default splitter is used, resolved with any per-collection size
+        override (preserving the T8 "recursive sizes per collection" behavior).
+        """
+        doc_type = document.metadata.get("doc_type")
+        if doc_type is not None and doc_type in self._by_doc_type:
+            return self._by_doc_type[doc_type]
+        return self._resolve_splitter(collection)
 
     def _resolve_splitter(self, collection: str):
         """Return the splitter to use for *collection*.

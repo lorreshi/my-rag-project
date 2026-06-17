@@ -25,7 +25,7 @@
 | T7 | RecursiveSplitter：可插拔 length_fn + tiktoken + size_unit | ✅ | [x] | Property 12 |
 | T8 | size 配置化 + 按 collection 覆盖 | ✅ | [x] | |
 | T9 | TableAwareSplitter（表头重复 + sheet 边界 + 结构 metadata） | ✅ | [x] | Property 13 |
-| T10 | DocumentChunker 按 doc_type 路由 + by_doc_type 配置 | ✅ | [ ] | Property 14 |
+| T10 | DocumentChunker 按 doc_type 路由 + by_doc_type 配置 | ✅ | [x] | Property 14 |
 | T11 | LoaderFactory + register_loader | ✅ | [ ] | Property 9 |
 | T12 | MarkdownLoader | ✅ | [ ] | |
 | T13 | DocxLoader | ✅ | [ ] | |
@@ -153,7 +153,7 @@ graph TD
   - **测试方法**：`pytest -q tests/unit/test_table_aware_splitter.py`（Property 13：多 sheet、混合文本、超行表格用例）。
   - _Requirements: 5.2, 5.3, 5.4, 5.5_
 
-- [ ] 10. DocumentChunker 按 doc_type 路由 + by_doc_type 配置
+- [x] 10. DocumentChunker 按 doc_type 路由 + by_doc_type 配置
   - **目标**：按 `document.metadata["doc_type"]` 选择切分器，未命中走默认递归。
   - **修改文件**：`src/ingestion/chunking/document_chunker.py`、`tests/unit/test_chunker_routing.py`
   - **实现**：构造默认切分器 + `by_doc_type` 映射；`split_document` 按 doc_type 选择；未配置时全部走默认。
