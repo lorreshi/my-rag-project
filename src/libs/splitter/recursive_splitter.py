@@ -171,8 +171,42 @@ class RecursiveSplitter(BaseSplitter):
 
 
 def _create_recursive(settings: "Settings") -> RecursiveSplitter:
-    # Future: read chunk_size/overlap from settings
-    return RecursiveSplitter()
+    """Create a RecursiveSplitter from ``settings.splitter`` (default size).
+
+    Reads chunk_size/chunk_overlap/size_unit/token_encoding from the splitter
+    config, falling back to RecursiveSplitter defaults when the splitter config
+    is absent (keeps the factory robust for minimal Settings objects).
+    """
+    return build_recursive_splitter(settings)
+
+
+def build_recursive_splitter(
+    settings: "Settings",
+    chunk_size: int | None = None,
+    chunk_overlap: int | None = None,
+) -> RecursiveSplitter:
+    """Build a RecursiveSplitter using the effective size parameters.
+
+    The size unit and token encoding always come from ``settings.splitter``
+    (with ``getattr`` fallbacks). ``chunk_size``/``chunk_overlap`` may be
+    overridden explicitly (e.g. per-collection overrides resolved by the
+    chunker); when not given they default to the splitter config values.
+    """
+    splitter_cfg = getattr(settings, "splitter", None)
+
+    if chunk_size is None:
+        chunk_size = getattr(splitter_cfg, "chunk_size", 512)
+    if chunk_overlap is None:
+        chunk_overlap = getattr(splitter_cfg, "chunk_overlap", 64)
+    size_unit = getattr(splitter_cfg, "size_unit", "token")
+    token_encoding = getattr(splitter_cfg, "token_encoding", "cl100k_base")
+
+    return RecursiveSplitter(
+        chunk_size=chunk_size,
+        chunk_overlap=chunk_overlap,
+        size_unit=size_unit,
+        token_encoding=token_encoding,
+    )
 
 
 register_splitter("recursive", _create_recursive)

@@ -142,7 +142,7 @@ class IngestionPipeline:
 
             # Stage 2: split
             progress("split", 0, 1)
-            chunks = self._split(document, trace)
+            chunks = self._split(document, collection, trace)
             result.total_chunks = len(chunks)
             progress("split", 1, 1)
 
@@ -203,10 +203,12 @@ class IngestionPipeline:
         })
         return document
 
-    def _split(self, document: Document, trace: TraceContext) -> list[Chunk]:
+    def _split(
+        self, document: Document, collection: str, trace: TraceContext
+    ) -> list[Chunk]:
         trace.start_stage("split")
         try:
-            chunks = self._chunker.split_document(document)
+            chunks = self._chunker.split_document(document, collection)
         except Exception as exc:
             trace.end_stage(details={"method": "recursive", "error": str(exc)})
             raise IngestionError(f"Split stage failed: {exc}") from exc
