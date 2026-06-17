@@ -19,7 +19,7 @@
 | T1 | BaseTokenizer + JiebaTokenizer + 工厂/配置 | ✅ | [x] | |
 | T2 | SparseEncoder 接入共享分词器 | ✅ | [x] | |
 | T3 | QueryProcessor 接入共享分词器 + 一致性测试 | ✅ | [x] | Property 8 |
-| T4 | SplitPiece + BaseSplitter.split() + 向后兼容 | ✅ | [ ] | |
+| T4 | SplitPiece + BaseSplitter.split() + 向后兼容 | ✅ | [x] | |
 | T5 | DocumentChunker 合并 per-chunk 结构化 metadata | ✅ | [ ] | |
 | T6 | RecursiveSplitter：CJK 分隔符 + overlap 修正 | ✅ | [ ] | Property 11 |
 | T7 | RecursiveSplitter：可插拔 length_fn + tiktoken + size_unit | ✅ | [ ] | Property 12 |
@@ -105,7 +105,7 @@ graph TD
   - **测试方法**：`pytest -q tests/unit/test_tokenizer_consistency.py`（Property 8：参数化中文/英文/混合文本断言 token 序列相等）。
   - _Requirements: 2.2_
 
-- [ ] 4. SplitPiece + BaseSplitter.split() + 向后兼容
+- [x] 4. SplitPiece + BaseSplitter.split() + 向后兼容
   - **目标**：升级切分接口以承载结构化 metadata，同时保持现有 `split_text` 调用不破坏。
   - **修改文件**：`src/libs/splitter/base_splitter.py`、`tests/unit/test_base_splitter_contract.py`
   - **实现**：`@dataclass SplitPiece(text, metadata={})`；`BaseSplitter.split(text)->list[SplitPiece]`（抽象）；`split_text` 默认基于 `split()` 仅取 `text`（向后兼容）。
