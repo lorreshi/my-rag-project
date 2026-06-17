@@ -18,7 +18,7 @@
 |---------|---------|---------|------|------|
 | T1 | BaseTokenizer + JiebaTokenizer + 工厂/配置 | ✅ | [x] | |
 | T2 | SparseEncoder 接入共享分词器 | ✅ | [x] | |
-| T3 | QueryProcessor 接入共享分词器 + 一致性测试 | ✅ | [ ] | Property 8 |
+| T3 | QueryProcessor 接入共享分词器 + 一致性测试 | ✅ | [x] | Property 8 |
 | T4 | SplitPiece + BaseSplitter.split() + 向后兼容 | ✅ | [ ] | |
 | T5 | DocumentChunker 合并 per-chunk 结构化 metadata | ✅ | [ ] | |
 | T6 | RecursiveSplitter：CJK 分隔符 + overlap 修正 | ✅ | [ ] | Property 11 |
@@ -97,7 +97,7 @@ graph TD
   - **测试方法**：`pytest -q tests/unit/test_sparse_encoder.py`（注入 Fake/Jieba 分词器断言词项）。
   - _Requirements: 2.5_
 
-- [ ] 3. QueryProcessor 接入共享分词器 + 一致性测试
+- [x] 3. QueryProcessor 接入共享分词器 + 一致性测试
   - **目标**：移除 `QueryProcessor` 重复正则，改用同一 `BaseTokenizer`，并固化"摄取↔查询"一致性。
   - **修改文件**：`src/core/query_engine/query_processor.py`、`tests/unit/test_query_processor.py`、`tests/unit/test_tokenizer_consistency.py`
   - **实现**：`QueryProcessor` 接收同一分词器；`_extract_keywords` 委托分词器后去重保序；删除重复 `_TOKEN_RE`。

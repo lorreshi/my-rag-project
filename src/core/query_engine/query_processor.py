@@ -5,8 +5,11 @@ Transforms a raw user query into a ProcessedQuery containing:
 - filters: a generic metadata filter dict (collection / doc_type / etc.).
 - normalized_query: the (lightly) cleaned query text for dense embedding.
 
-Tokenization mirrors SparseEncoder so that query keywords align with the BM25
-index vocabulary (same casing, same CJK-per-char behavior).
+Tokenization is delegated to a shared ``BaseTokenizer`` (the same component the
+ingestion-side ``SparseEncoder`` uses) so query keywords align with the BM25
+index vocabulary. Lowercasing and stopword filtering are the tokenizer's
+responsibility; this processor only dedupes the tokens while preserving
+first-seen order.
 """
 from __future__ import annotations
 
@@ -15,20 +18,12 @@ import re
 from dataclasses import dataclass, field
 from typing import TYPE_CHECKING, Any
 
+from src.libs.tokenizer import BaseTokenizer, JiebaTokenizer
+
 if TYPE_CHECKING:
     from src.core.trace.trace_context import TraceContext
 
 logger = logging.getLogger(__name__)
-
-# Same tokenizer contract as SparseEncoder: ASCII word runs + per-char CJK.
-_TOKEN_RE = re.compile(r"[A-Za-z0-9]+|[\u4e00-\u9fff]")
-
-_DEFAULT_STOPWORDS = {
-    "the", "a", "an", "and", "or", "but", "of", "to", "in", "on", "for",
-    "is", "are", "was", "were", "be", "been", "with", "as", "by", "at",
-    "this", "that", "it", "from", "how", "what", "why", "when", "where",
-    "do", "does", "can", "i", "we", "you",
-}
 
 
 @dataclass
@@ -52,15 +47,16 @@ class ProcessedQuery:
 class QueryProcessor:
     """Extract keywords and parse filters from a raw query."""
 
-    def __init__(
-        self,
-        lowercase: bool = True,
-        stopwords: set[str] | None = None,
-    ):
-        self._lowercase = lowercase
-        self._stopwords = (
-            _DEFAULT_STOPWORDS if stopwords is None else stopwords
-        )
+    def __init__(self, tokenizer: BaseTokenizer | None = None):
+        """Initialize QueryProcessor.
+
+        Args:
+            tokenizer: Shared BM25 tokenizer. When ``None``, defaults to
+                ``JiebaTokenizer()`` (matching ``TokenizerFactory``'s default
+                and the ingestion-side ``SparseEncoder``), so
+                ``QueryProcessor()`` remains usable without arguments.
+        """
+        self._tokenizer: BaseTokenizer = tokenizer or JiebaTokenizer()
 
     def process(
         self,
@@ -111,16 +107,18 @@ class QueryProcessor:
         return re.sub(r"\s+", " ", query).strip()
 
     def _extract_keywords(self, text: str) -> list[str]:
-        """Tokenize and drop stopwords, preserving first-seen order (deduped)."""
+        """Tokenize via the shared tokenizer, deduped preserving first-seen order.
+
+        Lowercasing and stopword filtering happen inside the tokenizer, so the
+        BM25 vocabulary stays aligned with the ingestion side. This method only
+        removes duplicates while keeping the first occurrence's position.
+        """
         if not text:
             return []
-        raw = _TOKEN_RE.findall(text)
-        if self._lowercase:
-            raw = [t.lower() for t in raw]
         seen: set[str] = set()
         keywords: list[str] = []
-        for t in raw:
-            if t in self._stopwords or t in seen:
+        for t in self._tokenizer.tokenize(text):
+            if t in seen:
                 continue
             seen.add(t)
             keywords.append(t)
