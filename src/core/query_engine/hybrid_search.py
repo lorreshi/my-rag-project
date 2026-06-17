@@ -168,8 +168,11 @@ class HybridSearch:
         from src.core.query_engine.fusion import ReciprocalRankFusion
         from src.core.query_engine.query_processor import QueryProcessor
         from src.core.query_engine.sparse_retriever import SparseRetriever
+        from src.libs.tokenizer import TokenizerFactory
 
-        qp = overrides.get("query_processor") or QueryProcessor()
+        qp = overrides.get("query_processor") or QueryProcessor(
+            tokenizer=TokenizerFactory.create(settings)
+        )
         dense = overrides.get("dense_retriever") or DenseRetriever(settings=settings)
         sparse = overrides.get("sparse_retriever") or SparseRetriever(settings=settings)
         fusion = overrides.get("fusion") or ReciprocalRankFusion(
