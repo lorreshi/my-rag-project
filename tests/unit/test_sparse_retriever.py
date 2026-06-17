@@ -9,6 +9,7 @@ from src.core.query_engine.sparse_retriever import SparseRetriever
 from src.ingestion.embedding.sparse_encoder import SparseEncoder
 from src.ingestion.storage.bm25_indexer import BM25Indexer
 from src.libs.vector_store.base_vector_store import BaseVectorStore
+from src.libs.tokenizer import JiebaTokenizer
 
 
 class FakeVectorStore(BaseVectorStore):
@@ -42,7 +43,7 @@ class FakeVectorStore(BaseVectorStore):
 
 def _build_index(tmp_path, corpus: dict[str, str]) -> BM25Indexer:
     """corpus: {chunk_id: text}. Build a BM25 index over it."""
-    enc = SparseEncoder(stopwords=set())
+    enc = SparseEncoder(tokenizer=JiebaTokenizer(stopwords=set()))
     chunks = [Chunk(id=cid, text=txt, metadata={}, source_ref="d") for cid, txt in corpus.items()]
     svs = enc.encode(chunks)
     idx = BM25Indexer(index_dir=str(tmp_path / "bm25"))
