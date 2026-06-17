@@ -24,7 +24,7 @@
 | T6 | RecursiveSplitter：CJK 分隔符 + overlap 修正 | ✅ | [x] | Property 11 |
 | T7 | RecursiveSplitter：可插拔 length_fn + tiktoken + size_unit | ✅ | [x] | Property 12 |
 | T8 | size 配置化 + 按 collection 覆盖 | ✅ | [x] | |
-| T9 | TableAwareSplitter（表头重复 + sheet 边界 + 结构 metadata） | ✅ | [ ] | Property 13 |
+| T9 | TableAwareSplitter（表头重复 + sheet 边界 + 结构 metadata） | ✅ | [x] | Property 13 |
 | T10 | DocumentChunker 按 doc_type 路由 + by_doc_type 配置 | ✅ | [ ] | Property 14 |
 | T11 | LoaderFactory + register_loader | ✅ | [ ] | Property 9 |
 | T12 | MarkdownLoader | ✅ | [ ] | |
@@ -145,7 +145,7 @@ graph TD
   - **测试方法**：`pytest -q tests/unit/test_splitter_config.py`（覆盖解析、默认回退）。
   - _Requirements: 4.5, 6.1, 6.2, 6.3_
 
-- [ ] 9. TableAwareSplitter（表头重复 + sheet 边界 + 结构 metadata）
+- [x] 9. TableAwareSplitter（表头重复 + sheet 边界 + 结构 metadata）
   - **目标**：对 Markdown 表格按行成块、每块重复表头、按 sheet 切，并产出结构化 metadata。
   - **修改文件**：`src/libs/splitter/table_aware_splitter.py`、`tests/unit/test_table_aware_splitter.py`
   - **实现**：识别 `| ... |` 表格块与 `|---|` 分隔行；按 token 预算分行成块、每块前置表头；按 sheet 标题（`## {sheet_name}`）归属；非表格文本回退默认递归；`split()` 返回带 `sheet_name/row_start/row_end/is_table` 的 `SplitPiece`；注册到 `SplitterFactory`（`table_aware`）。
