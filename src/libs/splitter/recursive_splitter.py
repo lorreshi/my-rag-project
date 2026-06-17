@@ -2,28 +2,44 @@
 
 Implements the same algorithm as LangChain's RecursiveCharacterTextSplitter
 without the heavy dependency chain. Splits text by trying separators in order
-of priority (Markdown headings → paragraphs → sentences → characters),
-recursing into smaller separators when chunks exceed the size limit.
+of priority (Markdown headings → paragraphs → lines → CJK/English sentence
+boundaries → commas → words → characters), recursing into smaller separators
+when chunks exceed the size limit.
+
+The separator table is CJK-aware: long Chinese paragraphs are broken at
+Chinese punctuation (。！？；，) *before* ever falling back to the character
+level, so prose never degrades into single-character fragments (Property 11).
 """
 from __future__ import annotations
 
 from typing import TYPE_CHECKING
 
-from src.libs.splitter.base_splitter import BaseSplitter
+from src.libs.splitter.base_splitter import BaseSplitter, SplitPiece
 from src.libs.splitter.splitter_factory import register_splitter
 
 if TYPE_CHECKING:
     from src.core.settings import Settings
     from src.core.trace.trace_context import TraceContext
 
-# Markdown-aware separators, from coarsest to finest
+# Markdown-aware separators, from coarsest to finest.
+# Order (design §2.1a): structure (headings) → paragraph → line →
+# CJK sentence enders → English sentence enders → commas → word → character.
 _DEFAULT_SEPARATORS = [
-    "\n## ",      # H2 heading
+    "\n## ",      # H2 heading (structure)
     "\n### ",     # H3 heading
     "\n#### ",    # H4 heading
     "\n\n",       # paragraph break
     "\n",         # line break
-    ". ",         # sentence boundary
+    "。",          # CJK full stop
+    "！",          # CJK exclamation
+    "？",          # CJK question mark
+    "；",          # CJK semicolon
+    ". ",         # English sentence boundary
+    "! ",         # English exclamation
+    "? ",         # English question
+    "; ",         # English semicolon
+    "，",          # CJK comma (finer)
+    ", ",         # English comma
     " ",          # word boundary
     "",           # character-level (last resort)
 ]
@@ -42,14 +58,15 @@ class RecursiveSplitter(BaseSplitter):
         self._chunk_overlap = chunk_overlap
         self._separators = separators or _DEFAULT_SEPARATORS
 
-    def split_text(
+    def split(
         self,
         text: str,
         trace: "TraceContext | None" = None,
-    ) -> list[str]:
+    ) -> list[SplitPiece]:
+        """Split *text* into prose pieces with empty (structureless) metadata."""
         if not text.strip():
             return []
-        return self._split(text, self._separators)
+        return [SplitPiece(t) for t in self._split(text, self._separators)]
 
     def _split(self, text: str, separators: list[str]) -> list[str]:
         """Recursively split *text* using the first applicable separator."""
@@ -97,12 +114,13 @@ class RecursiveSplitter(BaseSplitter):
         if current.strip():
             chunks.append(current.strip())
 
-        # Apply overlap: prepend tail of previous chunk to next chunk
+        # Apply overlap: prepend tail of previous chunk to next chunk.
+        # Concatenate directly without inserting a separator — CJK-friendly.
         if self._chunk_overlap > 0 and len(chunks) > 1:
             overlapped: list[str] = [chunks[0]]
             for i in range(1, len(chunks)):
                 prev_tail = chunks[i - 1][-self._chunk_overlap:]
-                merged = prev_tail + " " + chunks[i]
+                merged = prev_tail + chunks[i]
                 if len(merged) <= self._chunk_size:
                     overlapped.append(merged)
                 else:
