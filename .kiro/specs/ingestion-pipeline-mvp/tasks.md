@@ -26,7 +26,7 @@
 | T8 | size 配置化 + 按 collection 覆盖 | ✅ | [x] | |
 | T9 | TableAwareSplitter（表头重复 + sheet 边界 + 结构 metadata） | ✅ | [x] | Property 13 |
 | T10 | DocumentChunker 按 doc_type 路由 + by_doc_type 配置 | ✅ | [x] | Property 14 |
-| T11 | LoaderFactory + register_loader | ✅ | [ ] | Property 9 |
+| T11 | LoaderFactory + register_loader | ✅ | [x] | Property 9 |
 | T12 | MarkdownLoader | ✅ | [ ] | |
 | T13 | DocxLoader | ✅ | [ ] | |
 | T14 | XlsxLoader（产出 sheet 标记） | ✅ | [ ] | |
@@ -161,7 +161,7 @@ graph TD
   - **测试方法**：`pytest -q tests/unit/test_chunker_routing.py`（Property 14：路由命中/未命中）。
   - _Requirements: 5.1, 5.6_
 
-- [ ] 11. LoaderFactory + register_loader
+- [x] 11. LoaderFactory + register_loader
   - **目标**：按扩展名路由 Loader 的工厂。
   - **修改文件**：`src/libs/loader/loader_factory.py`、`src/libs/loader/__init__.py`、`tests/unit/test_loader_factory.py`
   - **实现**：`register_loader(extensions, factory_fn)`；`LoaderFactory.create(path)` 按扩展名返回 Loader；未知扩展名抛含可用列表的 `ValueError`；注册既有 `PdfLoader`。
