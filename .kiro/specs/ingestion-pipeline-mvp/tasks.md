@@ -23,7 +23,7 @@
 | T5 | DocumentChunker 合并 per-chunk 结构化 metadata | ✅ | [x] | |
 | T6 | RecursiveSplitter：CJK 分隔符 + overlap 修正 | ✅ | [x] | Property 11 |
 | T7 | RecursiveSplitter：可插拔 length_fn + tiktoken + size_unit | ✅ | [x] | Property 12 |
-| T8 | size 配置化 + 按 collection 覆盖 | ✅ | [ ] | |
+| T8 | size 配置化 + 按 collection 覆盖 | ✅ | [x] | |
 | T9 | TableAwareSplitter（表头重复 + sheet 边界 + 结构 metadata） | ✅ | [ ] | Property 13 |
 | T10 | DocumentChunker 按 doc_type 路由 + by_doc_type 配置 | ✅ | [ ] | Property 14 |
 | T11 | LoaderFactory + register_loader | ✅ | [ ] | Property 9 |
@@ -137,7 +137,7 @@ graph TD
   - **测试方法**：`pytest -q tests/unit/test_splitter_length.py`（Property 12：token vs char 边界对比）。
   - _Requirements: 4.3, 4.4_
 
-- [ ] 8. size 配置化 + 按 collection 覆盖
+- [x] 8. size 配置化 + 按 collection 覆盖
   - **目标**：`chunk_size/overlap` 从 settings 读取，并支持按 collection 覆盖。
   - **修改文件**：`src/core/settings.py`（splitter 配置结构）、`src/libs/splitter/splitter_factory.py`、`src/ingestion/chunking/document_chunker.py`、`config/settings.yaml`、`tests/unit/test_splitter_config.py`
   - **实现**：Settings 增加 `splitter.{type,size_unit,chunk_size,chunk_overlap,by_doc_type,overrides}`；`DocumentChunker.split_document(document, collection)` 按 collection 解析生效 size（overrides 优先）。

@@ -12,6 +12,7 @@ from typing import TYPE_CHECKING
 
 from src.core.types import Document, Chunk, ImageRef
 from src.libs.splitter.splitter_factory import SplitterFactory
+from src.libs.splitter.recursive_splitter import build_recursive_splitter
 
 if TYPE_CHECKING:
     from src.core.settings import Settings
@@ -24,19 +25,30 @@ class DocumentChunker:
     """Split a Document into Chunks with full business metadata."""
 
     def __init__(self, settings: "Settings", splitter_type: str = "recursive"):
+        self._settings = settings
+        self._splitter_type = splitter_type
         self._splitter = SplitterFactory.create(settings, splitter_type)
 
-    def split_document(self, document: Document) -> list[Chunk]:
+    def split_document(
+        self, document: Document, collection: str = "default"
+    ) -> list[Chunk]:
         """Split a Document into a list of Chunk objects.
 
         Args:
             document: The Document to split.
+            collection: Target collection name. Used to resolve per-collection
+                size overrides from ``settings.splitter.overrides``; when no
+                override exists the splitter defaults are used.
 
         Returns:
             List of Chunk objects with IDs, metadata, and source references.
         """
+        # Resolve the effective splitter for this collection (size may be
+        # overridden per collection). Non-recursive splitters are used as-is.
+        splitter = self._resolve_splitter(collection)
+
         # Use the configured splitter to get rich split pieces (text + metadata)
-        pieces = self._splitter.split(document.text)
+        pieces = splitter.split(document.text)
 
         # Build image lookup from document metadata
         doc_images = document.images  # List[ImageRef]
@@ -61,6 +73,39 @@ class DocumentChunker:
             chunks.append(chunk)
 
         return chunks
+
+    def _resolve_splitter(self, collection: str):
+        """Return the splitter to use for *collection*.
+
+        For the recursive splitter, build a fresh instance using the effective
+        size for this collection (per-collection overrides take precedence over
+        the splitter defaults). Non-recursive splitters (e.g. injected fakes or
+        table-aware) are returned unchanged.
+        """
+        if self._splitter_type.lower() != "recursive":
+            return self._splitter
+
+        chunk_size, chunk_overlap = self._effective_size(collection)
+        return build_recursive_splitter(self._settings, chunk_size, chunk_overlap)
+
+    def _effective_size(self, collection: str) -> tuple[int, int]:
+        """Resolve (chunk_size, chunk_overlap) for *collection*.
+
+        Starts from the splitter defaults (with getattr fallbacks so a minimal
+        Settings without a ``splitter`` section still works), then applies any
+        per-collection override found in ``settings.splitter.overrides``.
+        """
+        splitter_cfg = getattr(self._settings, "splitter", None)
+        chunk_size = getattr(splitter_cfg, "chunk_size", 512)
+        chunk_overlap = getattr(splitter_cfg, "chunk_overlap", 64)
+
+        overrides = getattr(splitter_cfg, "overrides", None) or {}
+        override = overrides.get(collection)
+        if isinstance(override, dict):
+            chunk_size = override.get("chunk_size", chunk_size)
+            chunk_overlap = override.get("chunk_overlap", chunk_overlap)
+
+        return chunk_size, chunk_overlap
 
     @staticmethod
     def _generate_chunk_id(doc_id: str, index: int, text: str) -> str:
