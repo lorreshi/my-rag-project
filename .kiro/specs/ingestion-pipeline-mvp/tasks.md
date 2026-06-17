@@ -21,7 +21,7 @@
 | T3 | QueryProcessor 接入共享分词器 + 一致性测试 | ✅ | [x] | Property 8 |
 | T4 | SplitPiece + BaseSplitter.split() + 向后兼容 | ✅ | [x] | |
 | T5 | DocumentChunker 合并 per-chunk 结构化 metadata | ✅ | [x] | |
-| T6 | RecursiveSplitter：CJK 分隔符 + overlap 修正 | ✅ | [ ] | Property 11 |
+| T6 | RecursiveSplitter：CJK 分隔符 + overlap 修正 | ✅ | [x] | Property 11 |
 | T7 | RecursiveSplitter：可插拔 length_fn + tiktoken + size_unit | ✅ | [ ] | Property 12 |
 | T8 | size 配置化 + 按 collection 覆盖 | ✅ | [ ] | |
 | T9 | TableAwareSplitter（表头重复 + sheet 边界 + 结构 metadata） | ✅ | [ ] | Property 13 |
@@ -121,7 +121,7 @@ graph TD
   - **测试方法**：`pytest -q tests/unit/test_document_chunker.py`（FakeSplitter 返回带/不带 metadata 的 piece）。
   - _Requirements: 3.3, 3.4, 3.5_
 
-- [ ] 6. RecursiveSplitter：CJK 分隔符 + overlap 修正
+- [x] 6. RecursiveSplitter：CJK 分隔符 + overlap 修正
   - **目标**：消除长中文段落被切成单字；overlap 衔接不强插空格。
   - **修改文件**：`src/libs/splitter/recursive_splitter.py`、`tests/unit/test_recursive_splitter_cjk.py`
   - **实现**：分隔符表加入 `。！？；，` 与英文句末；改 `split_text`→实现 `split()` 返回 `SplitPiece(text)`；overlap 拼接去掉强插空格。
