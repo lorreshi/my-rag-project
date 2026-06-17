@@ -5,7 +5,7 @@ import pytest
 
 from src.core.types import Document, Chunk, ImageRef
 from src.ingestion.chunking.document_chunker import DocumentChunker
-from src.libs.splitter.base_splitter import BaseSplitter
+from src.libs.splitter.base_splitter import BaseSplitter, SplitPiece
 from src.libs.splitter.splitter_factory import register_splitter, _REGISTRY
 from src.core.settings import Settings
 
@@ -19,6 +19,36 @@ class FakeSplitter(BaseSplitter):
     @property
     def splitter_type(self) -> str:
         return "fake"
+
+
+class FakeMetadataSplitter(BaseSplitter):
+    """Splits by double newline and attaches structured per-piece metadata.
+
+    Each piece gets a deterministic ``sheet_name``/``row_start`` derived from
+    its index, plus any extra metadata injected via the constructor (used to
+    construct collisions with chunker-owned keys).
+    """
+
+    def __init__(self, extra_metadata: dict | None = None):
+        self._extra = extra_metadata or {}
+
+    def split(self, text, trace=None):
+        parts = [p.strip() for p in text.split("\n\n") if p.strip()]
+        pieces = []
+        for i, part in enumerate(parts):
+            meta = {
+                "sheet_name": f"Sheet{i + 1}",
+                "row_start": i * 10,
+                "row_end": i * 10 + 9,
+                "is_table": True,
+            }
+            meta.update(self._extra)
+            pieces.append(SplitPiece(text=part, metadata=meta))
+        return pieces
+
+    @property
+    def splitter_type(self) -> str:
+        return "fake_meta"
 
 
 @pytest.fixture(autouse=True)
@@ -141,3 +171,109 @@ class TestDocumentChunker:
         chunks = chunker.split_document(_make_doc())
         for c in chunks:
             json.dumps(c.to_dict())  # Should not raise
+
+
+@pytest.mark.unit
+class TestPieceMetadataMerge:
+    """T5: per-chunk SplitPiece.metadata merged into chunk.metadata."""
+
+    @pytest.fixture(autouse=True)
+    def _register_meta(self):
+        saved = dict(_REGISTRY)
+        register_splitter("fake_meta", lambda s: FakeMetadataSplitter())
+        yield
+        _REGISTRY.clear()
+        _REGISTRY.update(saved)
+
+    def test_empty_metadata_matches_current_behavior(self):
+        """Prose-style splitter (empty piece metadata) behaves as before."""
+        fake = DocumentChunker(Settings(), splitter_type="fake")
+        doc = _make_doc()
+        chunks = fake.split_document(doc)
+
+        # No structured keys leak in; only inherited + chunker-owned fields.
+        for i, c in enumerate(chunks):
+            assert c.metadata["source_path"] == "test.pdf"
+            assert c.metadata["doc_type"] == "pdf"
+            assert c.metadata["doc_hash"] == "abc123"
+            assert c.metadata["chunk_index"] == i
+            assert "sheet_name" not in c.metadata
+            assert "is_table" not in c.metadata
+
+    def test_structured_metadata_merged(self):
+        """Piece metadata fields land in chunk.metadata alongside existing keys."""
+        chunker = DocumentChunker(Settings(), splitter_type="fake_meta")
+        doc = _make_doc()
+        chunks = chunker.split_document(doc)
+
+        assert len(chunks) == 3
+        for i, c in enumerate(chunks):
+            # Inherited document metadata still present
+            assert c.metadata["doc_type"] == "pdf"
+            # Chunker-owned field still correct
+            assert c.metadata["chunk_index"] == i
+            # Structured piece metadata merged in
+            assert c.metadata["sheet_name"] == f"Sheet{i + 1}"
+            assert c.metadata["row_start"] == i * 10
+            assert c.metadata["row_end"] == i * 10 + 9
+            assert c.metadata["is_table"] is True
+
+    def test_piece_metadata_cannot_overwrite_chunk_index(self):
+        """A conflicting chunk_index in piece metadata must not win."""
+        saved = dict(_REGISTRY)
+        register_splitter(
+            "fake_meta_conflict",
+            lambda s: FakeMetadataSplitter(extra_metadata={"chunk_index": 999}),
+        )
+        try:
+            chunker = DocumentChunker(Settings(), splitter_type="fake_meta_conflict")
+            chunks = chunker.split_document(_make_doc())
+            for i, c in enumerate(chunks):
+                assert c.metadata["chunk_index"] == i
+        finally:
+            _REGISTRY.clear()
+            _REGISTRY.update(saved)
+
+    def test_piece_metadata_cannot_overwrite_image_fields(self):
+        """Conflicting image_refs/images in piece metadata must not win."""
+        saved = dict(_REGISTRY)
+        register_splitter(
+            "fake_meta_img_conflict",
+            lambda s: FakeMetadataSplitter(
+                extra_metadata={"image_refs": ["evil"], "images": [{"id": "evil"}]}
+            ),
+        )
+        try:
+            images = [
+                {"id": "img1", "path": "/tmp/img1.png", "page": 0,
+                 "text_offset": 0, "text_length": 14},
+            ]
+            text = "[IMAGE: img1] description.\n\nNo image here."
+            chunker = DocumentChunker(Settings(), splitter_type="fake_meta_img_conflict")
+            doc = _make_doc(text, images=images)
+            chunks = chunker.split_document(doc)
+
+            # First chunk: chunker-computed image fields win over piece metadata.
+            assert chunks[0].metadata["image_refs"] == ["img1"]
+            assert len(chunks[0].metadata["images"]) == 1
+            assert chunks[0].metadata["images"][0]["id"] == "img1"
+
+            # Second chunk has no placeholder, so the malicious keys must NOT
+            # leak in from piece metadata either.
+            assert "image_refs" not in chunks[1].metadata
+            assert "images" not in chunks[1].metadata
+        finally:
+            _REGISTRY.clear()
+            _REGISTRY.update(saved)
+
+    def test_chunk_id_deterministic_with_metadata(self):
+        """chunk_id stays deterministic and depends only on text, not metadata."""
+        meta_chunker = DocumentChunker(Settings(), splitter_type="fake_meta")
+        plain_chunker = DocumentChunker(Settings(), splitter_type="fake")
+        doc = _make_doc()
+
+        meta_chunks = meta_chunker.split_document(doc)
+        plain_chunks = plain_chunker.split_document(doc)
+
+        # Same text => same deterministic ids regardless of attached metadata.
+        assert [c.id for c in meta_chunks] == [c.id for c in plain_chunks]
