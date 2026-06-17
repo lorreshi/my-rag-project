@@ -20,7 +20,7 @@
 | T2 | SparseEncoder 接入共享分词器 | ✅ | [x] | |
 | T3 | QueryProcessor 接入共享分词器 + 一致性测试 | ✅ | [x] | Property 8 |
 | T4 | SplitPiece + BaseSplitter.split() + 向后兼容 | ✅ | [x] | |
-| T5 | DocumentChunker 合并 per-chunk 结构化 metadata | ✅ | [ ] | |
+| T5 | DocumentChunker 合并 per-chunk 结构化 metadata | ✅ | [x] | |
 | T6 | RecursiveSplitter：CJK 分隔符 + overlap 修正 | ✅ | [ ] | Property 11 |
 | T7 | RecursiveSplitter：可插拔 length_fn + tiktoken + size_unit | ✅ | [ ] | Property 12 |
 | T8 | size 配置化 + 按 collection 覆盖 | ✅ | [ ] | |
@@ -113,7 +113,7 @@ graph TD
   - **测试方法**：`pytest -q tests/unit/test_base_splitter_contract.py`（用最小 Fake splitter 验证契约与兼容）。
   - _Requirements: 3.1, 3.2_
 
-- [ ] 5. DocumentChunker 合并 per-chunk 结构化 metadata
+- [x] 5. DocumentChunker 合并 per-chunk 结构化 metadata
   - **目标**：让 chunker 把 `SplitPiece.metadata` 合并进 `Chunk.metadata`，与既有字段共存。
   - **修改文件**：`src/ingestion/chunking/document_chunker.py`、`tests/unit/test_document_chunker.py`
   - **实现**：改 `split_document` 消费 `splitter.split()`；`_inherit_metadata` 合并 piece.metadata（不覆盖 `chunk_index`/`image_refs`/`source_ref`）。
