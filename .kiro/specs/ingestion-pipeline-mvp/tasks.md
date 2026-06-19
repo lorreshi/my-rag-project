@@ -32,7 +32,7 @@
 | T14 | XlsxLoader（产出 sheet 标记） | ✅ | [x] | |
 | T15 | Pipeline.from_settings / ingest.py 走 LoaderFactory | ✅ | [x] | |
 | T16 | 查询侧按结构化 metadata 过滤 | ✅ | [x] | |
-| T17 | 端到端：xlsx 摄取→按 sheet 过滤 + PDF 回归 | ✅ | [ ] | 集成测试 |
+| T17 | 端到端：xlsx 摄取→按 sheet 过滤 + PDF 回归 | ✅ | [x] | 集成测试 |
 
 ---
 
@@ -209,7 +209,7 @@ graph TD
   - **测试方法**：`pytest -q tests/unit/test_structured_filter.py`（构造带 sheet metadata 的候选断言过滤）。
   - _Requirements: 7.1, 7.2, 7.3_
 
-- [ ] 17. 端到端：xlsx 摄取→按 sheet 过滤 + PDF 回归
+- [x] 17. 端到端：xlsx 摄取→按 sheet 过滤 + PDF 回归
   - **目标**：打通新链路的集成验证，并保证既有 PDF 流程不回归。
   - **修改文件**：`tests/integration/test_multiformat_ingestion.py`、`tests/fixtures/sample_documents/sample.xlsx`、`tests/fixtures/sample_documents/sample.md`
   - **实现**：对 xlsx 跑完整 pipeline（jieba 分词 + 表格切分 + 结构 metadata），再按 `sheet_name` 查询；保留既有 PDF e2e 用例。
