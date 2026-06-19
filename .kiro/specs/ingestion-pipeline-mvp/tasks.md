@@ -28,7 +28,7 @@
 | T10 | DocumentChunker 按 doc_type 路由 + by_doc_type 配置 | ✅ | [x] | Property 14 |
 | T11 | LoaderFactory + register_loader | ✅ | [x] | Property 9 |
 | T12 | MarkdownLoader | ✅ | [x] | |
-| T13 | DocxLoader | ✅ | [ ] | |
+| T13 | DocxLoader | ✅ | [x] | |
 | T14 | XlsxLoader（产出 sheet 标记） | ✅ | [ ] | |
 | T15 | Pipeline.from_settings / ingest.py 走 LoaderFactory | ✅ | [ ] | |
 | T16 | 查询侧按结构化 metadata 过滤 | ✅ | [ ] | |
@@ -177,7 +177,7 @@ graph TD
   - **测试方法**：`pytest -q tests/unit/test_markdown_loader.py`（纯文本 / 含图片链接 / 坏链接）。
   - _Requirements: 1.2, 1.4, 1.6_
 
-- [ ] 13. DocxLoader
+- [x] 13. DocxLoader
   - **目标**：经 MarkItDown 把 docx 转为规范化 Markdown。
   - **修改文件**：`src/libs/loader/docx_loader.py`、`tests/unit/test_docx_loader.py`
   - **实现**：MarkItDown 转换；`doc_type=docx`、`doc_id=docx_{hash[:12]}`；MVP 暂不提取内嵌图片（降级为无图）；注册 `.docx`。
