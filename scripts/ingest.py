@@ -19,20 +19,29 @@ from src.core.settings import load_settings
 from src.ingestion.pipeline import IngestionError, IngestionPipeline, IngestionResult
 from src.observability.logger import get_logger
 
+# Importing the loader package registers the built-in loaders with the
+# LoaderFactory; the supported extensions are derived from that registry so the
+# CLI stays in sync with whatever formats are registered.
+import src.libs.loader  # noqa: F401
+from src.libs.loader.loader_factory import registered_extensions
+
 logger = get_logger()
 
-# Supported source extensions (currently PDF only — see DEV_SPEC C3).
-_SUPPORTED_EXTENSIONS = {".pdf"}
+
+def _supported_extensions() -> set[str]:
+    """Supported source extensions, derived from the LoaderFactory registry."""
+    return registered_extensions()
 
 
 def _collect_files(path: Path) -> list[Path]:
     """Return the list of supported files for a file or directory path."""
+    supported = _supported_extensions()
     if path.is_file():
         return [path]
     if path.is_dir():
         return sorted(
             p for p in path.rglob("*")
-            if p.is_file() and p.suffix.lower() in _SUPPORTED_EXTENSIONS
+            if p.is_file() and p.suffix.lower() in supported
         )
     return []
 

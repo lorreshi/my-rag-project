@@ -29,6 +29,15 @@ def register_loader(
         _REGISTRY[key] = factory_fn
 
 
+def registered_extensions() -> set[str]:
+    """Return the set of currently registered extensions (lowercase, dotted).
+
+    Useful for callers (e.g. the ingest CLI) that need to collect supported
+    files without hardcoding the format list.
+    """
+    return set(_REGISTRY)
+
+
 class LoaderFactory:
     """Create a BaseLoader based on a file path's extension."""
 
