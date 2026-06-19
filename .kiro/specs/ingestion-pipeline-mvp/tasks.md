@@ -27,7 +27,7 @@
 | T9 | TableAwareSplitter（表头重复 + sheet 边界 + 结构 metadata） | ✅ | [x] | Property 13 |
 | T10 | DocumentChunker 按 doc_type 路由 + by_doc_type 配置 | ✅ | [x] | Property 14 |
 | T11 | LoaderFactory + register_loader | ✅ | [x] | Property 9 |
-| T12 | MarkdownLoader | ✅ | [ ] | |
+| T12 | MarkdownLoader | ✅ | [x] | |
 | T13 | DocxLoader | ✅ | [ ] | |
 | T14 | XlsxLoader（产出 sheet 标记） | ✅ | [ ] | |
 | T15 | Pipeline.from_settings / ingest.py 走 LoaderFactory | ✅ | [ ] | |
@@ -169,7 +169,7 @@ graph TD
   - **测试方法**：`pytest -q tests/unit/test_loader_factory.py`（Property 9：路由 + 未知扩展名）。
   - _Requirements: 1.1, 1.5_
 
-- [ ] 12. MarkdownLoader
+- [x] 12. MarkdownLoader
   - **目标**：直接读取 Markdown 文件为 Document，并解析本地图片链接。
   - **修改文件**：`src/libs/loader/markdown_loader.py`、`tests/unit/test_markdown_loader.py`
   - **实现**：读取文本（不经 MarkItDown）；`doc_type=markdown`、`doc_id=md_{hash[:12]}`；解析 `![alt](path)` 为 `ImageRef`（缺失降级跳过）；注册 `.md/.markdown`。
