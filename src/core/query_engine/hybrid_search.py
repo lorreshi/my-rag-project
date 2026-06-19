@@ -34,6 +34,17 @@ logger = logging.getLogger(__name__)
 class HybridSearch:
     """Hybrid (dense + sparse) retrieval orchestrator."""
 
+    # Structured metadata fields produced at split time (e.g. by
+    # TableAwareSplitter). Filtering on these uses a STRICT policy: a candidate
+    # missing the key is treated as a non-match and excluded, so e.g. filtering
+    # by ``sheet_name`` returns only chunks belonging to that sheet
+    # (Requirement 7.1). Generic filter keys (doc_type/collection/...) keep the
+    # lenient missing->include policy to avoid dropping recall on incomplete
+    # metadata.
+    _STRUCTURED_FILTER_KEYS = frozenset(
+        {"sheet_name", "row_start", "row_end", "is_table"}
+    )
+
     def __init__(
         self,
         query_processor: "QueryProcessor",
@@ -137,16 +148,25 @@ class HybridSearch:
     # Metadata filtering (post-filter safety net)
     # ------------------------------------------------------------------
 
-    @staticmethod
+    @classmethod
     def _apply_metadata_filters(
+        cls,
         candidates: list[RetrievalResult],
         filters: dict[str, Any],
     ) -> list[RetrievalResult]:
-        """Apply equality metadata filters with missing->include policy.
+        """Apply equality metadata filters with a per-key missing policy.
 
-        For each filter key, a candidate is kept if its metadata value equals
-        the filter value. If the candidate's metadata is missing the key, it is
-        included (lenient) to avoid wrongly dropping recall on incomplete data.
+        For each filter key a candidate is kept only if its metadata value
+        equals the filter value (present-but-different is always excluded).
+
+        The missing-key policy depends on the key:
+        - Structured fields (``_STRUCTURED_FILTER_KEYS``, e.g. ``sheet_name``):
+          STRICT — a candidate missing the key is excluded. This makes
+          structured filters (filter by ``sheet_name``) return only matching
+          chunks (Requirement 7.1).
+        - Generic fields (doc_type/collection/...): LENIENT — a candidate
+          missing the key is included, avoiding wrongly dropping recall on
+          incomplete data.
         """
         if not filters:
             return candidates
@@ -154,7 +174,9 @@ class HybridSearch:
         def _keep(item: RetrievalResult) -> bool:
             for key, value in filters.items():
                 if key not in item.metadata:
-                    continue  # missing -> include
+                    if key in cls._STRUCTURED_FILTER_KEYS:
+                        return False  # structured: missing -> exclude (strict)
+                    continue  # generic: missing -> include (lenient)
                 if item.metadata[key] != value:
                     return False
             return True

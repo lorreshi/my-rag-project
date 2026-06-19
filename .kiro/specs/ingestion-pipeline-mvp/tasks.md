@@ -31,7 +31,7 @@
 | T13 | DocxLoader | ✅ | [x] | |
 | T14 | XlsxLoader（产出 sheet 标记） | ✅ | [x] | |
 | T15 | Pipeline.from_settings / ingest.py 走 LoaderFactory | ✅ | [x] | |
-| T16 | 查询侧按结构化 metadata 过滤 | ✅ | [ ] | |
+| T16 | 查询侧按结构化 metadata 过滤 | ✅ | [x] | |
 | T17 | 端到端：xlsx 摄取→按 sheet 过滤 + PDF 回归 | ✅ | [ ] | 集成测试 |
 
 ---
@@ -201,7 +201,7 @@ graph TD
   - **测试方法**：`pytest -q tests/unit/test_pipeline_loader_dispatch.py`（注入 Fake loaders 断言分发）。
   - _Requirements: 1.7_
 
-- [ ] 16. 查询侧按结构化 metadata 过滤
+- [x] 16. 查询侧按结构化 metadata 过滤
   - **目标**：查询支持按 `sheet_name` 等结构字段过滤，并在结果中携带这些字段。
   - **修改文件**：`src/core/query_engine/query_processor.py`（filters 透传）、`src/core/query_engine/hybrid_search.py` 或检索器过滤应用处、`tests/unit/test_structured_filter.py`
   - **实现**：复用既有通用 `filters` 通道，对 chunk metadata 做匹配过滤；结果保留 `sheet_name/row` 字段用于引用。
