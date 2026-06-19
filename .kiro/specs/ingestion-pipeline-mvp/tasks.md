@@ -29,7 +29,7 @@
 | T11 | LoaderFactory + register_loader | ✅ | [x] | Property 9 |
 | T12 | MarkdownLoader | ✅ | [x] | |
 | T13 | DocxLoader | ✅ | [x] | |
-| T14 | XlsxLoader（产出 sheet 标记） | ✅ | [ ] | |
+| T14 | XlsxLoader（产出 sheet 标记） | ✅ | [x] | |
 | T15 | Pipeline.from_settings / ingest.py 走 LoaderFactory | ✅ | [ ] | |
 | T16 | 查询侧按结构化 metadata 过滤 | ✅ | [ ] | |
 | T17 | 端到端：xlsx 摄取→按 sheet 过滤 + PDF 回归 | ✅ | [ ] | 集成测试 |
@@ -185,7 +185,7 @@ graph TD
   - **测试方法**：`pytest -q tests/unit/test_docx_loader.py`（mock MarkItDown 返回 Markdown；失败降级）。
   - _Requirements: 1.3, 1.4, 1.6_
 
-- [ ] 14. XlsxLoader（产出 sheet 标记）
+- [x] 14. XlsxLoader（产出 sheet 标记）
   - **目标**：把 xlsx 转为 Markdown 表格，并为每个 sheet 产出可识别的标题标记，供表格切分归属 sheet。
   - **修改文件**：`src/libs/loader/xlsx_loader.py`、`tests/unit/test_xlsx_loader.py`
   - **实现**：MarkItDown 转换；为每个 sheet 前置 `## {sheet_name}` 标记；`doc_type=xlsx`、`doc_id=xlsx_{hash[:12]}`；注册 `.xlsx`。
