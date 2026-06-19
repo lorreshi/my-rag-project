@@ -30,7 +30,7 @@
 | T12 | MarkdownLoader | ✅ | [x] | |
 | T13 | DocxLoader | ✅ | [x] | |
 | T14 | XlsxLoader（产出 sheet 标记） | ✅ | [x] | |
-| T15 | Pipeline.from_settings / ingest.py 走 LoaderFactory | ✅ | [ ] | |
+| T15 | Pipeline.from_settings / ingest.py 走 LoaderFactory | ✅ | [x] | |
 | T16 | 查询侧按结构化 metadata 过滤 | ✅ | [ ] | |
 | T17 | 端到端：xlsx 摄取→按 sheet 过滤 + PDF 回归 | ✅ | [ ] | 集成测试 |
 
@@ -193,7 +193,7 @@ graph TD
   - **测试方法**：`pytest -q tests/unit/test_xlsx_loader.py`（mock MarkItDown；单/多 sheet）。
   - _Requirements: 1.3, 1.4_
 
-- [ ] 15. Pipeline.from_settings / ingest.py 走 LoaderFactory
+- [x] 15. Pipeline.from_settings / ingest.py 走 LoaderFactory
   - **目标**：装配与脚本入口不再硬编码 PdfLoader，改为按文件类型分发。
   - **修改文件**：`src/ingestion/pipeline.py`、`scripts/ingest.py`、`tests/unit/test_pipeline_loader_dispatch.py`
   - **实现**：`from_settings` 用 `LoaderFactory.create(source_path)`（或在 run 时按 path 选择）；`ingest.py` 支持多格式文件/目录。
