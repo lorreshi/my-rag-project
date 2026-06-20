@@ -8,6 +8,7 @@ import pytest
 from src.ingestion.embedding.sparse_encoder import SparseEncoder, SparseVector
 from src.ingestion.storage.bm25_indexer import BM25Indexer
 from src.core.types import Chunk
+from src.libs.tokenizer import JiebaTokenizer
 
 
 def _sv(chunk_id: str, term_freqs: dict[str, int]) -> SparseVector:
@@ -155,7 +156,7 @@ class TestUpdates:
 
 class TestEndToEndWithEncoder:
     def test_encoder_to_indexer(self, tmp_path):
-        enc = SparseEncoder(stopwords=set())
+        enc = SparseEncoder(tokenizer=JiebaTokenizer(stopwords=set()))
         chunks = [
             Chunk(id="d0", text="machine learning models", metadata={}, source_ref="x"),
             Chunk(id="d1", text="deep learning networks", metadata={}, source_ref="x"),

@@ -1,13 +1,41 @@
-"""Unit tests for SparseEncoder — BM25 term statistics output contract."""
+"""Unit tests for SparseEncoder — BM25 term statistics output contract.
+
+Tokenization is delegated to an injected ``BaseTokenizer`` (Task 2). Tests
+either inject a deterministic ``FakeTokenizer`` to assert the encoder's
+delegation/counting contract precisely, or inject a ``JiebaTokenizer`` to
+assert real Chinese word-level term_freqs.
+"""
 from __future__ import annotations
 
 from src.core.types import Chunk
 from src.core.trace.trace_context import TraceContext
 from src.ingestion.embedding.sparse_encoder import SparseEncoder, SparseVector
+from src.libs.tokenizer import BaseTokenizer, JiebaTokenizer
 
 
 def _chunk(text: str, chunk_id: str = "c0") -> Chunk:
     return Chunk(id=chunk_id, text=text, metadata={}, source_ref="doc")
+
+
+class FakeTokenizer(BaseTokenizer):
+    """Deterministic whitespace tokenizer for asserting delegation.
+
+    Splits on whitespace, lowercases, and drops an optional stopword set.
+    Empty/whitespace-only text yields an empty list (matching the contract).
+    """
+
+    def __init__(self, stopwords: set[str] | None = None):
+        self._stopwords = stopwords or set()
+
+    def tokenize(self, text: str) -> list[str]:
+        if not text or not text.strip():
+            return []
+        return [t for t in text.lower().split() if t not in self._stopwords]
+
+
+# A jieba tokenizer with no stopword filtering, for raw word-level assertions.
+def _no_stopword_jieba() -> JiebaTokenizer:
+    return JiebaTokenizer(stopwords=set())
 
 
 class TestEncoding:
@@ -19,7 +47,7 @@ class TestEncoding:
         assert all(isinstance(r, SparseVector) for r in result)
 
     def test_term_freqs_counted(self):
-        enc = SparseEncoder(stopwords=set())  # no stopwords for clarity
+        enc = SparseEncoder(tokenizer=FakeTokenizer())
         result = enc.encode([_chunk("alpha beta alpha gamma alpha")])
         sv = result[0]
         assert sv.term_freqs["alpha"] == 3
@@ -27,7 +55,7 @@ class TestEncoding:
         assert sv.term_freqs["gamma"] == 1
 
     def test_doc_length(self):
-        enc = SparseEncoder(stopwords=set())
+        enc = SparseEncoder(tokenizer=FakeTokenizer())
         result = enc.encode([_chunk("one two three four")])
         assert result[0].doc_length == 4
 
@@ -36,29 +64,52 @@ class TestEncoding:
         result = enc.encode([_chunk("text here", "my_chunk")])
         assert result[0].chunk_id == "my_chunk"
 
-    def test_lowercase_default(self):
-        enc = SparseEncoder(stopwords=set())
+    def test_lowercase_via_tokenizer(self):
+        enc = SparseEncoder(tokenizer=FakeTokenizer())
         result = enc.encode([_chunk("Apple APPLE apple")])
         assert result[0].term_freqs["apple"] == 3
 
-    def test_stopwords_removed(self):
-        enc = SparseEncoder()  # default stopwords
+    def test_stopwords_removed_via_tokenizer(self):
+        enc = SparseEncoder(tokenizer=FakeTokenizer(stopwords={"the", "and"}))
         result = enc.encode([_chunk("the cat and the dog")])
         assert "the" not in result[0].term_freqs
         assert "and" not in result[0].term_freqs
         assert result[0].term_freqs["cat"] == 1
         assert result[0].term_freqs["dog"] == 1
 
-    def test_punctuation_ignored(self):
-        enc = SparseEncoder(stopwords=set())
-        result = enc.encode([_chunk("hello, world! hello.")])
-        assert result[0].term_freqs["hello"] == 2
-        assert result[0].term_freqs["world"] == 1
+    def test_delegates_to_injected_tokenizer(self):
+        """term_freqs are exactly Counter(tokenizer.tokenize(text))."""
+        tok = _no_stopword_jieba()
+        text = "检索增强 hello 检索"
+        enc = SparseEncoder(tokenizer=tok)
+        sv = enc.encode([_chunk(text)])[0]
+        expected = tok.tokenize(text)
+        assert sv.doc_length == len(expected)
+        for term in set(expected):
+            assert sv.term_freqs[term] == expected.count(term)
 
-    def test_cjk_tokenized_per_char(self):
-        enc = SparseEncoder(stopwords=set())
+
+class TestChineseWordLevel:
+    def test_cjk_tokenized_word_level(self):
+        """With jieba, Chinese is segmented into words, not single chars."""
+        tok = _no_stopword_jieba()
+        text = "检索增强生成"
+        enc = SparseEncoder(tokenizer=tok)
+        sv = enc.encode([_chunk(text)])[0]
+        expected = tok.tokenize(text)
+        # jieba yields word-level tokens (fewer than the 6 characters).
+        assert sv.doc_length == len(expected)
+        assert sv.term_freqs == {t: expected.count(t) for t in set(expected)}
+
+    def test_char_level_via_injected_tokenizer(self):
+        """A char-level tokenizer can be injected to assert per-char tokens."""
+
+        class CharTokenizer(BaseTokenizer):
+            def tokenize(self, text: str) -> list[str]:
+                return [c for c in text if c.strip()]
+
+        enc = SparseEncoder(tokenizer=CharTokenizer())
         result = enc.encode([_chunk("检索增强")])
-        # each CJK char is a token
         assert result[0].doc_length == 4
         assert result[0].term_freqs["检"] == 1
 
@@ -78,7 +129,7 @@ class TestEmptyText:
         assert result[0].doc_length == 0
 
     def test_stopwords_only_yields_empty(self):
-        enc = SparseEncoder()
+        enc = SparseEncoder()  # default jieba tokenizer with stopwords
         result = enc.encode([_chunk("the and of to")])
         assert result[0].term_freqs == {}
         assert result[0].doc_length == 0
@@ -90,7 +141,7 @@ class TestEmptyText:
 
 class TestContractForIndexer:
     def test_to_dict_structure(self):
-        enc = SparseEncoder(stopwords=set())
+        enc = SparseEncoder(tokenizer=FakeTokenizer())
         sv = enc.encode([_chunk("alpha beta")])[0]
         d = sv.to_dict()
         assert set(d.keys()) == {"chunk_id", "term_freqs", "doc_length"}
@@ -98,7 +149,7 @@ class TestContractForIndexer:
 
     def test_usable_for_idf_aggregation(self):
         """Document frequency can be derived across SparseVectors."""
-        enc = SparseEncoder(stopwords=set())
+        enc = SparseEncoder(tokenizer=FakeTokenizer())
         results = enc.encode([
             _chunk("apple banana", "c0"),
             _chunk("apple cherry", "c1"),

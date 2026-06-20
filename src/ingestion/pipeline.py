@@ -64,7 +64,7 @@ class IngestionPipeline:
 
     def __init__(
         self,
-        loader: "BaseLoader",
+        loader: "BaseLoader | None",
         chunker: "DocumentChunker",
         transforms: "list[BaseTransform]",
         batch_processor: "BatchProcessor",
@@ -73,6 +73,9 @@ class IngestionPipeline:
         integrity_checker: "FileIntegrityChecker | None" = None,
         image_storage: "BaseImageStorage | None" = None,
     ):
+        # When *loader* is None the loader is resolved per-file at run time via
+        # LoaderFactory (extension-driven). An explicitly injected loader always
+        # takes precedence (used by tests and single-format callers).
         self._loader = loader
         self._chunker = chunker
         self._transforms = transforms
@@ -142,7 +145,7 @@ class IngestionPipeline:
 
             # Stage 2: split
             progress("split", 0, 1)
-            chunks = self._split(document, trace)
+            chunks = self._split(document, collection, trace)
             result.total_chunks = len(chunks)
             progress("split", 1, 1)
 
@@ -191,8 +194,9 @@ class IngestionPipeline:
 
     def _load(self, source_path: str, trace: TraceContext) -> Document:
         trace.start_stage("load")
+        loader = self._resolve_loader(source_path)
         try:
-            document = self._loader.load(source_path)
+            document = loader.load(source_path)
         except Exception as exc:
             trace.end_stage(details={"method": "markitdown", "error": str(exc)})
             raise IngestionError(f"Load stage failed: {exc}") from exc
@@ -203,10 +207,28 @@ class IngestionPipeline:
         })
         return document
 
-    def _split(self, document: Document, trace: TraceContext) -> list[Chunk]:
+    def _resolve_loader(self, source_path: str) -> "BaseLoader":
+        """Pick the loader for *source_path*.
+
+        An explicitly injected loader (constructor / overrides) always wins.
+        Otherwise the loader is chosen by file extension via LoaderFactory.
+        A clear ValueError (with the available extensions) propagates for
+        unknown types so callers can surface it.
+        """
+        if self._loader is not None:
+            return self._loader
+        # Importing the package registers the built-in loaders with the factory.
+        import src.libs.loader  # noqa: F401
+        from src.libs.loader.loader_factory import LoaderFactory
+
+        return LoaderFactory.create(source_path)
+
+    def _split(
+        self, document: Document, collection: str, trace: TraceContext
+    ) -> list[Chunk]:
         trace.start_stage("split")
         try:
-            chunks = self._chunker.split_document(document)
+            chunks = self._chunker.split_document(document, collection)
         except Exception as exc:
             trace.end_stage(details={"method": "recursive", "error": str(exc)})
             raise IngestionError(f"Split stage failed: {exc}") from exc
@@ -331,10 +353,16 @@ class IngestionPipeline:
         from src.libs.embedding.embedding_factory import EmbeddingFactory
         from src.libs.llm.llm_factory import LLMFactory
         from src.libs.loader.file_integrity import SQLiteIntegrityChecker
-        from src.libs.loader.pdf_loader import PdfLoader
+        from src.libs.tokenizer import TokenizerFactory
         from src.libs.vector_store.vector_store_factory import VectorStoreFactory
 
-        loader = overrides.get("loader") or PdfLoader()
+        # Importing the loader package registers the built-in loaders with the
+        # LoaderFactory (extension-driven routing).
+        import src.libs.loader  # noqa: F401
+
+        # No hardcoded loader: when not overridden, the loader is resolved per
+        # file at run time via LoaderFactory.create(source_path).
+        loader = overrides.get("loader")
         chunker = overrides.get("chunker") or DocumentChunker(settings)
 
         llm = overrides.get("llm")
@@ -352,7 +380,7 @@ class IngestionPipeline:
 
         embedding = overrides.get("embedding") or EmbeddingFactory.create(settings)
         dense = DenseEncoder(embedding)
-        sparse = SparseEncoder()
+        sparse = SparseEncoder(tokenizer=TokenizerFactory.create(settings))
         batch = overrides.get("batch_processor") or BatchProcessor(dense, sparse)
 
         vector_store = overrides.get("vector_store") or VectorStoreFactory.create(settings)
