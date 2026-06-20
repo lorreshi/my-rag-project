@@ -42,11 +42,28 @@ class TestKeywords:
         assert "bm25" in result.keywords
         assert "rrf" in result.keywords
 
-    def test_cjk_tokenized(self):
+    def test_cjk_tokenized_word_level(self):
+        # jieba now segments Chinese at the word level (not per-character),
+        # so "检索增强" yields word tokens like "检索"/"增强" rather than
+        # four single characters.
         qp = QueryProcessor()
         result = qp.process("检索增强")
-        assert "检" in result.keywords
-        assert len(result.keywords) == 4
+        assert "检索" in result.keywords
+        assert "增强" in result.keywords
+        # No single-character fragment should survive for this phrase.
+        assert all(len(k) > 1 for k in result.keywords)
+
+    def test_uses_injected_tokenizer(self):
+        # A custom tokenizer is honored; dedup preserves first-seen order.
+        from src.libs.tokenizer import BaseTokenizer
+
+        class FakeTokenizer(BaseTokenizer):
+            def tokenize(self, text: str) -> list[str]:
+                return ["alpha", "beta", "alpha", "gamma"]
+
+        qp = QueryProcessor(tokenizer=FakeTokenizer())
+        result = qp.process("anything")
+        assert result.keywords == ["alpha", "beta", "gamma"]
 
     def test_empty_query(self):
         qp = QueryProcessor()

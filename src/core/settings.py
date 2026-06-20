@@ -63,6 +63,29 @@ class RetrievalConfig:
     top_k_dense: int = 20
     top_k_sparse: int = 20
     top_k_final: int = 10
+    tokenizer: str = "jieba"  # BM25 tokenizer: jieba | regex
+
+
+@dataclass
+class SplitterConfig:
+    """Text splitting configuration.
+
+    ``chunk_size``/``chunk_overlap`` are measured in ``size_unit`` (``token`` by
+    default, aligned with the embedding model's tiktoken encoding).
+
+    ``by_doc_type`` maps a document ``doc_type`` to a splitter type (routing is
+    consumed by the chunker in a later task). ``overrides`` maps a collection
+    name to a partial config dict (e.g. ``{"chunk_size": 256}``) that overrides
+    the defaults for that collection only.
+    """
+
+    type: str = "recursive"
+    size_unit: str = "token"
+    chunk_size: int = 512
+    chunk_overlap: int = 64
+    token_encoding: str = "cl100k_base"
+    by_doc_type: dict[str, str] = field(default_factory=dict)
+    overrides: dict[str, dict] = field(default_factory=dict)
 
 
 @dataclass
@@ -105,6 +128,7 @@ class Settings:
     vision_llm: VisionLLMConfig = field(default_factory=VisionLLMConfig)
     vector_store: VectorStoreConfig = field(default_factory=VectorStoreConfig)
     retrieval: RetrievalConfig = field(default_factory=RetrievalConfig)
+    splitter: SplitterConfig = field(default_factory=SplitterConfig)
     rerank: RerankConfig = field(default_factory=RerankConfig)
     evaluation: EvaluationConfig = field(default_factory=EvaluationConfig)
     observability: ObservabilityConfig = field(default_factory=ObservabilityConfig)
@@ -189,6 +213,7 @@ def _parse_raw(raw: dict[str, Any]) -> Settings:
         vision_llm=_build(VisionLLMConfig, raw.get("vision_llm")),
         vector_store=_build(VectorStoreConfig, raw.get("vector_store")),
         retrieval=_build(RetrievalConfig, raw.get("retrieval")),
+        splitter=_build(SplitterConfig, raw.get("splitter")),
         rerank=_build(RerankConfig, raw.get("rerank")),
         evaluation=_build(EvaluationConfig, raw.get("evaluation")),
         observability=_build(ObservabilityConfig, raw.get("observability")),

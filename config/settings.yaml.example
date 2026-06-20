@@ -30,6 +30,23 @@ retrieval:
   top_k_dense: 20
   top_k_sparse: 20
   top_k_final: 10
+  tokenizer: jieba          # jieba | regex (BM25 tokenizer, shared by ingestion + query)
+
+splitter:
+  type: recursive           # default splitter
+  size_unit: token          # token | char (token uses tiktoken, aligned with embedding)
+  chunk_size: 512
+  chunk_overlap: 64
+  token_encoding: cl100k_base
+  by_doc_type:              # doc_type -> splitter type (routing handled by chunker)
+    xlsx: table_aware
+  overrides:                # per-collection size overrides
+    faq:
+      chunk_size: 256
+      chunk_overlap: 32
+    tutorials:
+      chunk_size: 1024
+      chunk_overlap: 128
 
 rerank:
   backend: cross_encoder    # none | cross_encoder | llm
