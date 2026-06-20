@@ -45,5 +45,5 @@ logs/
 # Byte-compiled
 *.pyc
 
-# Local-only large test fixtures (not shipped in repo)
-tests/fixtures/sample_documents/Rust结构体.pdf
+# Local-only test fixtures / generated sample documents (not shipped in repo)
+tests/fixtures/sample_documents/
