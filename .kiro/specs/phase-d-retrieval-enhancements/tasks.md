@@ -26,7 +26,7 @@
 | T7 | BaseFilterExtractor + 规则抽取 + QueryProcessor 合并 | ✅ | [x] | 4 |
 | T8 | 同义词 OR-扩展（expanded_keywords） | ✅ | [x] | 8 |
 | T9 | Reranker head/tail 分数尺度统一 | ✅ | [x] | 6 |
-| T10 | QueryTransform 基类 + NoOp + HybridSearch 多列表接线 | ✅ | [ ] | 13 |
+| T10 | QueryTransform 基类 + NoOp + HybridSearch 多列表接线 | ✅ | [x] | 13 |
 | T11 | MultiQueryTransform（改写+并发+缓存+降级） | ✅ | [ ] | 10, 13 |
 | T12 | HyDETransform（假设文档+augment+doc_type 门控+降级） | ✅ | [ ] | 10 |
 | T13 | MMR 多样性阶段 | ✅ | [ ] | 11 |
@@ -153,7 +153,7 @@ graph TD
   - **测试方法**：`pytest -q tests/unit/test_reranker_scores.py`（Property 6：单调性 + metadata + fallback 回归）。
   - _Requirements: 6.1, 6.2, 6.3, 6.4, 6.5_
 
-- [ ] 10. QueryTransform 基类 + NoOp + HybridSearch 多列表接线
+- [x] 10. QueryTransform 基类 + NoOp + HybridSearch 多列表接线
   - **目标**：建立稠密侧查询变换的可插拔基座，并让 HybridSearch 支持多条稠密列表进融合。
   - **修改文件**：`src/core/query_engine/query_transform.py`（新增 `TransformedQuery`/`BaseQueryTransform`/`NoOpTransform`）、`src/core/query_engine/query_transform_factory.py`（新增）、`src/core/query_engine/hybrid_search.py`、`tests/unit/test_query_transform_base.py`、`tests/unit/test_hybrid_multilist.py`
   - **实现**：`TransformedQuery(dense_queries, used_llm, degraded)`；`NoOpTransform` 返回 `[query]`；工厂按 `query_transform` 选择（`none` 默认）；`HybridSearch.search` 对 `dense_queries` 每条各跑一次稠密、得多条列表，连同稀疏列表交 `fuse([*dense_lists, sparse])`。

@@ -28,6 +28,7 @@ if TYPE_CHECKING:
     from src.core.query_engine.dense_retriever import DenseRetriever
     from src.core.query_engine.fusion import BaseFusion
     from src.core.query_engine.query_processor import QueryProcessor
+    from src.core.query_engine.query_transform import BaseQueryTransform
     from src.core.query_engine.sparse_retriever import SparseRetriever
     from src.core.settings import Settings
     from src.core.trace.trace_context import TraceContext
@@ -55,6 +56,7 @@ class HybridSearch:
         top_k_sparse: int = 20,
         sparse_filter_overfetch: int = 4,
         enable_synonym_expansion: bool = False,
+        query_transform: "BaseQueryTransform | None" = None,
     ):
         """Initialize HybridSearch.
 
@@ -79,6 +81,10 @@ class HybridSearch:
         self._top_k_sparse = max(1, top_k_sparse)
         self._sparse_overfetch = max(1, sparse_filter_overfetch)
         self._synonym_expansion = enable_synonym_expansion
+        if query_transform is None:
+            from src.core.query_engine.query_transform import NoOpTransform
+            query_transform = NoOpTransform()
+        self._query_transform = query_transform
 
     def search(
         self,
@@ -106,11 +112,18 @@ class HybridSearch:
         dense_k = max(top_k, self._top_k_dense) * self._multiplier
         sparse_k = max(top_k, self._top_k_sparse) * self._multiplier
 
-        dense_results = self._run_dense(processed, dense_k, trace)
+        # Query transform (default NoOp -> single dense query == baseline).
+        transformed = self._query_transform.transform(query, trace=trace)
+        dense_lists = [
+            self._run_dense_text(
+                self._qp.normalize_for_dense(variant), dense_k, processed.filters, trace
+            )
+            for variant in transformed.dense_queries
+        ]
         sparse_results = self._run_sparse(processed, sparse_k, trace)
 
-        # Fuse available routes; if one is empty, fusion still works.
-        fused = self._fusion.fuse([dense_results, sparse_results], trace=trace)
+        # Fuse all dense lists + the sparse list; empty lists are harmless.
+        fused = self._fusion.fuse([*dense_lists, sparse_results], trace=trace)
 
         # Post-filter safety net (covers cases the stores didn't pre-filter).
         filtered = self._apply_metadata_filters(fused, processed.filters)
@@ -120,10 +133,12 @@ class HybridSearch:
         if trace:
             trace.end_stage(
                 details={
-                    "dense_count": len(dense_results),
+                    "dense_lists": len(dense_lists),
+                    "dense_count": sum(len(d) for d in dense_lists),
                     "sparse_count": len(sparse_results),
                     "fused_count": len(fused),
                     "final_count": len(final),
+                    "query_transform_degraded": transformed.degraded,
                 }
             )
 
@@ -133,12 +148,14 @@ class HybridSearch:
     # Route execution with degradation
     # ------------------------------------------------------------------
 
-    def _run_dense(self, processed, candidate_k, trace) -> list[RetrievalResult]:
+    def _run_dense_text(
+        self, text, candidate_k, filters, trace
+    ) -> list[RetrievalResult]:
         try:
             return self._dense.retrieve(
-                processed.normalized_query,
+                text,
                 top_k=candidate_k,
-                filters=processed.filters or None,
+                filters=filters or None,
                 trace=trace,
             )
         except Exception as exc:
@@ -223,6 +240,10 @@ class HybridSearch:
         dense = overrides.get("dense_retriever") or DenseRetriever(settings=settings)
         sparse = overrides.get("sparse_retriever") or SparseRetriever(settings=settings)
         fusion = overrides.get("fusion") or FusionFactory.create(settings)
+        query_transform = overrides.get("query_transform")
+        if query_transform is None:
+            from src.core.query_engine.query_transform_factory import QueryTransformFactory
+            query_transform = QueryTransformFactory.create(settings)
         return cls(
             qp,
             dense,
@@ -234,6 +255,7 @@ class HybridSearch:
             top_k_sparse=getattr(retrieval, "top_k_sparse", 20),
             sparse_filter_overfetch=getattr(retrieval, "sparse_filter_overfetch", 4),
             enable_synonym_expansion=getattr(retrieval, "enable_synonym_expansion", False),
+            query_transform=query_transform,
         )
 
     @staticmethod

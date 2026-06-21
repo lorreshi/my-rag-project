@@ -16,8 +16,12 @@ from src.core.settings import RetrievalConfig, Settings
 class FakeQP:
     def process(self, query, filters=None, trace=None):
         return types.SimpleNamespace(
-            normalized_query=query, keywords=[query], filters=filters or {}
+            normalized_query=query, keywords=[query], filters=filters or {},
+            expanded_keywords=[query],
         )
+
+    def normalize_for_dense(self, query):
+        return query
 
 
 class RecordingDense:
