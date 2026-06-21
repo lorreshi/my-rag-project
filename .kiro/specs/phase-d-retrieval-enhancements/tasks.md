@@ -29,7 +29,7 @@
 | T10 | QueryTransform 基类 + NoOp + HybridSearch 多列表接线 | ✅ | [x] | 13 |
 | T11 | MultiQueryTransform（改写+并发+缓存+降级） | ✅ | [x] | 10, 13 |
 | T12 | HyDETransform（假设文档+augment+doc_type 门控+降级） | ✅ | [x] | 10 |
-| T13 | MMR 多样性阶段 | ✅ | [ ] | 11 |
+| T13 | MMR 多样性阶段 | ✅ | [x] | 11 |
 | T14 | 相关性阈值 / abstain 闸门 | ✅ | [ ] | 12 |
 | T15 | 向后兼容与降级回归（集成） | ✅ | [ ] | 7, 9 |
 | T16 | 端到端：NFKC 重摄取 + 多增强串联验证（集成） | ✅ | [ ] | — |
@@ -169,7 +169,7 @@ graph TD
   - **测试方法**：`pytest -q tests/unit/test_multi_query.py`（Property 10 降级 + 缓存命中 + 去重保序，全部用 fake LLM）。
   - _Requirements: 8.2, 8.3, 8.4, 8.5_
 
-- [ ] 12. HyDETransform（假设文档 + augment + doc_type 门控 + 降级）
+- [x] 12. HyDETransform（假设文档 + augment + doc_type 门控 + 降级）
   - **目标**：实现 HyDE 策略，按 doc_type 门控避免结构化数据幻觉，失败降级。
   - **修改文件**：`src/core/query_engine/query_transform.py`（新增 `HyDETransform`）、`config/prompts/hyde.txt`（新增）、`tests/unit/test_hyde.py`
   - **实现**：`HyDETransform(llm, augment, skip_doc_types)`：LLM 生成假设文档；`augment=True` → `[query, hypo]`，否则 `[hypo]`；目标 doc_type 命中 `skip_doc_types` → 退化 `[query]`；异常 → `[query]` + `degraded=True`；复用 `LLMFactory`。
@@ -177,7 +177,7 @@ graph TD
   - **测试方法**：`pytest -q tests/unit/test_hyde.py`（Property 10：augment/replace + doc_type 门控 + 失败降级，fake LLM）。
   - _Requirements: 9.1, 9.2, 9.3, 9.4, 9.5_
 
-- [ ] 13. MMR 多样性阶段
+- [x] 13. MMR 多样性阶段
   - **目标**：在 rerank 后、裁剪前做可选多样性重排，缓解同字/同表冗余。
   - **修改文件**：`src/core/query_engine/diversity.py`（新增 `mmr_rerank`）、`src/core/query_engine/hybrid_search.py` 或查询编排末端接线、`tests/unit/test_mmr.py`
   - **实现**：`mmr_rerank(results, query_vector, embed_fn, lambda_, top_k)`：按 `λ·rel-(1-λ)·max_redundancy` 选择；复用候选稠密向量，缺失则 `embed_fn` 补算或 warning 跳过；`enable_mmr` 关闭时恒等；`λ>=1.0` 等价无 MMR；`_cos` 用 numpy。
