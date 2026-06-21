@@ -22,7 +22,7 @@ from src.core.types import RetrievalResult
 
 if TYPE_CHECKING:
     from src.core.query_engine.dense_retriever import DenseRetriever
-    from src.core.query_engine.fusion import ReciprocalRankFusion
+    from src.core.query_engine.fusion import BaseFusion
     from src.core.query_engine.query_processor import QueryProcessor
     from src.core.query_engine.sparse_retriever import SparseRetriever
     from src.core.settings import Settings
@@ -50,9 +50,11 @@ class HybridSearch:
         query_processor: "QueryProcessor",
         dense_retriever: "DenseRetriever",
         sparse_retriever: "SparseRetriever",
-        fusion: "ReciprocalRankFusion",
+        fusion: "BaseFusion",
         settings: "Settings | None" = None,
         candidate_multiplier: int = 2,
+        top_k_dense: int = 20,
+        top_k_sparse: int = 20,
     ):
         """Initialize HybridSearch.
 
@@ -60,10 +62,12 @@ class HybridSearch:
             query_processor: Produces keywords + filters from the raw query.
             dense_retriever: Semantic retriever.
             sparse_retriever: BM25 retriever.
-            fusion: RRF fusion.
+            fusion: Fusion strategy (RRF / weighted_sum via FusionFactory).
             settings: Optional settings (for default top_k values).
-            candidate_multiplier: Each route fetches top_k * multiplier
-                candidates before fusion, improving recall before the cut.
+            candidate_multiplier: Each route fetches its configured candidate
+                width * multiplier before fusion, improving recall before the cut.
+            top_k_dense: Base dense candidate width (from settings.retrieval).
+            top_k_sparse: Base sparse candidate width (from settings.retrieval).
         """
         self._qp = query_processor
         self._dense = dense_retriever
@@ -71,6 +75,8 @@ class HybridSearch:
         self._fusion = fusion
         self._settings = settings
         self._multiplier = max(1, candidate_multiplier)
+        self._top_k_dense = max(1, top_k_dense)
+        self._top_k_sparse = max(1, top_k_sparse)
 
     def search(
         self,
@@ -94,10 +100,12 @@ class HybridSearch:
             trace.start_stage("hybrid_search")
 
         processed = self._qp.process(query, filters=filters, trace=trace)
-        candidate_k = top_k * self._multiplier
+        # Config-driven candidate pool widths (no longer top_k * hardcoded 2).
+        dense_k = max(top_k, self._top_k_dense) * self._multiplier
+        sparse_k = max(top_k, self._top_k_sparse) * self._multiplier
 
-        dense_results = self._run_dense(processed, candidate_k, trace)
-        sparse_results = self._run_sparse(processed, candidate_k, trace)
+        dense_results = self._run_dense(processed, dense_k, trace)
+        sparse_results = self._run_sparse(processed, sparse_k, trace)
 
         # Fuse available routes; if one is empty, fusion still works.
         fused = self._fusion.fuse([dense_results, sparse_results], trace=trace)
@@ -187,24 +195,28 @@ class HybridSearch:
     def from_settings(cls, settings: "Settings", **overrides: Any) -> "HybridSearch":
         """Build a HybridSearch with real components from settings."""
         from src.core.query_engine.dense_retriever import DenseRetriever
-        from src.core.query_engine.fusion import ReciprocalRankFusion
+        from src.core.query_engine.fusion_factory import FusionFactory
         from src.core.query_engine.query_processor import QueryProcessor
         from src.core.query_engine.sparse_retriever import SparseRetriever
         from src.libs.tokenizer import TokenizerFactory
 
+        retrieval = getattr(settings, "retrieval", None)
         qp = overrides.get("query_processor") or QueryProcessor(
             tokenizer=TokenizerFactory.create(settings),
-            nfkc=getattr(settings.retrieval, "enable_nfkc", True)
-            if hasattr(settings, "retrieval") else True,
-            casefold=getattr(settings.retrieval, "normalize_casefold", True)
-            if hasattr(settings, "retrieval") else True,
-            to_simplified=getattr(settings.retrieval, "normalize_to_simplified", False)
-            if hasattr(settings, "retrieval") else False,
+            nfkc=getattr(retrieval, "enable_nfkc", True),
+            casefold=getattr(retrieval, "normalize_casefold", True),
+            to_simplified=getattr(retrieval, "normalize_to_simplified", False),
         )
         dense = overrides.get("dense_retriever") or DenseRetriever(settings=settings)
         sparse = overrides.get("sparse_retriever") or SparseRetriever(settings=settings)
-        fusion = overrides.get("fusion") or ReciprocalRankFusion(
-            k=getattr(settings.retrieval, "rrf_k", 60)
-            if hasattr(settings, "retrieval") else 60
+        fusion = overrides.get("fusion") or FusionFactory.create(settings)
+        return cls(
+            qp,
+            dense,
+            sparse,
+            fusion,
+            settings=settings,
+            candidate_multiplier=getattr(retrieval, "candidate_multiplier", 2),
+            top_k_dense=getattr(retrieval, "top_k_dense", 20),
+            top_k_sparse=getattr(retrieval, "top_k_sparse", 20),
         )
-        return cls(qp, dense, sparse, fusion, settings=settings)

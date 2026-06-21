@@ -21,7 +21,7 @@
 | T2 | 共享 normalize_text + 接入分词两侧/_normalize | ✅ | [x] | 1, 2 |
 | T3 | BaseFusion 抽出 + 加权 RRF | ✅ | [x] | 3, 13 |
 | T4 | WeightedSumFusion + FusionFactory | ✅ | [x] | — |
-| T5 | HybridSearch 候选池接线 + from_settings 走工厂 | ✅ | [ ] | — |
+| T5 | HybridSearch 候选池接线 + from_settings 走工厂 | ✅ | [x] | — |
 | T6 | 共享 _match_filters + SparseRetriever 前置过滤 | ✅ | [ ] | 5 |
 | T7 | BaseFilterExtractor + 规则抽取 + QueryProcessor 合并 | ✅ | [ ] | 4 |
 | T8 | 同义词 OR-扩展（expanded_keywords） | ✅ | [ ] | 8 |
@@ -113,7 +113,7 @@ graph TD
   - **测试方法**：`pytest -q tests/unit/test_fusion_factory.py`（三分支 + 未知值异常）。
   - _Requirements: 4.1, 4.2, 4.7_
 
-- [ ] 5. HybridSearch 候选池接线 + from_settings 走工厂
+- [x] 5. HybridSearch 候选池接线 + from_settings 走工厂
   - **目标**：修复配置漂移——候选池宽度按 `top_k_dense/sparse`×`candidate_multiplier`，融合走 FusionFactory。
   - **修改文件**：`src/core/query_engine/hybrid_search.py`、`tests/unit/test_hybrid_candidate_wiring.py`
   - **实现**：`__init__` 增加 `top_k_dense/top_k_sparse`；`search` 用 `dense_k=max(top_k,top_k_dense)*multiplier`（稀疏同理）；`from_settings` 用 `FusionFactory.create(settings)`，并从 settings 读 `candidate_multiplier/top_k_dense/top_k_sparse`。
