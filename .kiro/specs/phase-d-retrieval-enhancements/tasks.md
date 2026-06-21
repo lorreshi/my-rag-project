@@ -31,7 +31,7 @@
 | T12 | HyDETransform（假设文档+augment+doc_type 门控+降级） | ✅ | [x] | 10 |
 | T13 | MMR 多样性阶段 | ✅ | [x] | 11 |
 | T14 | 相关性阈值 / abstain 闸门 | ✅ | [x] | 12 |
-| T15 | 向后兼容与降级回归（集成） | ✅ | [ ] | 7, 9 |
+| T15 | 向后兼容与降级回归（集成） | ✅ | [x] | 7, 9 |
 | T16 | 端到端：NFKC 重摄取 + 多增强串联验证（集成） | ✅ | [ ] | — |
 
 ---
@@ -193,7 +193,7 @@ graph TD
   - **测试方法**：`pytest -q tests/unit/test_threshold.py`（Property 12：阈值语义三态 + 默认关回归）。
   - _Requirements: 11.1, 11.2, 11.3, 11.4, 11.5_
 
-- [ ] 15. 向后兼容与降级回归（集成）
+- [x] 15. 向后兼容与降级回归（集成）
   - **目标**：固化"全关=基线"与"单路失败降级"，防止新能力默认态改变现状。
   - **修改文件**：`tests/integration/test_retrieval_backward_compat.py`、`tests/integration/test_retrieval_degradation.py`
   - **实现**：构造默认 settings（所有 enable_* 关、`query_transform=none`、阈值 0），对一组查询断言输出与基线一致；分别注入抛异常的稠密/稀疏路断言降级到另一路；注入失败 QueryTransform 断言降级单查询。
