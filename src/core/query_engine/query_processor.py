@@ -34,6 +34,7 @@ class ProcessedQuery:
     raw_query: str
     normalized_query: str
     keywords: list[str] = field(default_factory=list)
+    expanded_keywords: list[str] = field(default_factory=list)
     filters: dict[str, Any] = field(default_factory=dict)
 
     def to_dict(self) -> dict[str, Any]:
@@ -41,6 +42,7 @@ class ProcessedQuery:
             "raw_query": self.raw_query,
             "normalized_query": self.normalized_query,
             "keywords": self.keywords,
+            "expanded_keywords": self.expanded_keywords,
             "filters": self.filters,
         }
 
@@ -55,6 +57,7 @@ class QueryProcessor:
         casefold: bool = True,
         to_simplified: bool = False,
         filter_extractor: "BaseFilterExtractor | None" = None,
+        synonym_map: dict[str, list[str]] | None = None,
     ):
         """Initialize QueryProcessor.
 
@@ -81,6 +84,7 @@ class QueryProcessor:
         self._casefold = casefold
         self._to_simplified = to_simplified
         self._filter_extractor = filter_extractor
+        self._synonyms = synonym_map or {}
 
     def process(
         self,
@@ -104,12 +108,14 @@ class QueryProcessor:
 
         normalized = self._normalize(query)
         keywords = self._extract_keywords(normalized)
+        expanded = self._expand_keywords(keywords)
         parsed_filters = self._parse_filters(filters, query)
 
         result = ProcessedQuery(
             raw_query=query,
             normalized_query=normalized,
             keywords=keywords,
+            expanded_keywords=expanded,
             filters=parsed_filters,
         )
 
@@ -160,6 +166,26 @@ class QueryProcessor:
             seen.add(t)
             keywords.append(t)
         return keywords
+
+    def _expand_keywords(self, keywords: list[str]) -> list[str]:
+        """Original keywords + synonym/alias tokens (OR-expansion for BM25).
+
+        Dedup preserving first-seen order, with the original keywords kept as
+        the prefix (so they retain their natural BM25 weight). Alias strings are
+        run through the shared tokenizer so they align with the BM25 vocabulary.
+        Returns a copy of ``keywords`` unchanged when no synonym map is set.
+        """
+        if not self._synonyms or not keywords:
+            return list(keywords)
+        seen: set[str] = set(keywords)
+        expanded: list[str] = list(keywords)
+        for kw in keywords:
+            for alias in self._synonyms.get(kw, []):
+                for tok in self._tokenizer.tokenize(alias):
+                    if tok not in seen:
+                        seen.add(tok)
+                        expanded.append(tok)
+        return expanded
 
     def _parse_filters(
         self, filters: dict[str, Any] | None, query: str = ""
