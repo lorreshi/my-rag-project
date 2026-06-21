@@ -22,7 +22,7 @@
 | T3 | BaseFusion 抽出 + 加权 RRF | ✅ | [x] | 3, 13 |
 | T4 | WeightedSumFusion + FusionFactory | ✅ | [x] | — |
 | T5 | HybridSearch 候选池接线 + from_settings 走工厂 | ✅ | [x] | — |
-| T6 | 共享 _match_filters + SparseRetriever 前置过滤 | ✅ | [ ] | 5 |
+| T6 | 共享 _match_filters + SparseRetriever 前置过滤 | ✅ | [x] | 5 |
 | T7 | BaseFilterExtractor + 规则抽取 + QueryProcessor 合并 | ✅ | [ ] | 4 |
 | T8 | 同义词 OR-扩展（expanded_keywords） | ✅ | [ ] | 8 |
 | T9 | Reranker head/tail 分数尺度统一 | ✅ | [x] | 6 |
@@ -121,7 +121,7 @@ graph TD
   - **测试方法**：`pytest -q tests/unit/test_hybrid_candidate_wiring.py`（注入 settings 断言候选宽度 + 融合器类型）。
   - _Requirements: 3.1, 3.3, 4.3_
 
-- [ ] 6. 共享 _match_filters + SparseRetriever 前置过滤
+- [x] 6. 共享 _match_filters + SparseRetriever 前置过滤
   - **目标**：让稀疏路支持前置过滤（over-fetch + 解析期过滤），复用统一的 strict/lenient 判定。
   - **修改文件**：`src/core/query_engine/metadata_filter.py`（新增共享 `match_filters`）、`src/core/query_engine/hybrid_search.py`（`_apply_metadata_filters` 改用共享 helper）、`src/core/query_engine/sparse_retriever.py`、`tests/unit/test_sparse_prefilter.py`
   - **实现**：抽出 `match_filters(meta, filters, structured_keys)` 共享 helper；`SparseRetriever.retrieve` 增加 `filters`/`overfetch`，有 filters 时 `fetch_k=top_k*overfetch`，解析期按 `match_filters` 过滤后截断 top_k；`HybridSearch` 把 `filters` 传入稀疏路。
