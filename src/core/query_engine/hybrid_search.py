@@ -54,6 +54,7 @@ class HybridSearch:
         top_k_dense: int = 20,
         top_k_sparse: int = 20,
         sparse_filter_overfetch: int = 4,
+        enable_synonym_expansion: bool = False,
     ):
         """Initialize HybridSearch.
 
@@ -77,6 +78,7 @@ class HybridSearch:
         self._top_k_dense = max(1, top_k_dense)
         self._top_k_sparse = max(1, top_k_sparse)
         self._sparse_overfetch = max(1, sparse_filter_overfetch)
+        self._synonym_expansion = enable_synonym_expansion
 
     def search(
         self,
@@ -144,9 +146,14 @@ class HybridSearch:
             return []
 
     def _run_sparse(self, processed, candidate_k, trace) -> list[RetrievalResult]:
+        keywords = (
+            processed.expanded_keywords
+            if self._synonym_expansion
+            else processed.keywords
+        )
         try:
             return self._sparse.retrieve(
-                processed.keywords,
+                keywords,
                 top_k=candidate_k,
                 filters=processed.filters or None,
                 overfetch=self._sparse_overfetch,
@@ -202,12 +209,16 @@ class HybridSearch:
         if getattr(retrieval, "enable_filter_extraction", False):
             from src.core.query_engine.filter_extractor import RuleBasedFilterExtractor
             filter_extractor = RuleBasedFilterExtractor()
+        synonym_map: dict[str, list[str]] = {}
+        if getattr(retrieval, "enable_synonym_expansion", False):
+            synonym_map = cls._load_synonyms(getattr(retrieval, "synonym_source", ""))
         qp = overrides.get("query_processor") or QueryProcessor(
             tokenizer=TokenizerFactory.create(settings),
             nfkc=getattr(retrieval, "enable_nfkc", True),
             casefold=getattr(retrieval, "normalize_casefold", True),
             to_simplified=getattr(retrieval, "normalize_to_simplified", False),
             filter_extractor=filter_extractor,
+            synonym_map=synonym_map,
         )
         dense = overrides.get("dense_retriever") or DenseRetriever(settings=settings)
         sparse = overrides.get("sparse_retriever") or SparseRetriever(settings=settings)
@@ -222,4 +233,27 @@ class HybridSearch:
             top_k_dense=getattr(retrieval, "top_k_dense", 20),
             top_k_sparse=getattr(retrieval, "top_k_sparse", 20),
             sparse_filter_overfetch=getattr(retrieval, "sparse_filter_overfetch", 4),
+            enable_synonym_expansion=getattr(retrieval, "enable_synonym_expansion", False),
         )
+
+    @staticmethod
+    def _load_synonyms(path: str) -> dict[str, list[str]]:
+        """Load a synonym map (JSON: term -> [aliases]); degrade to {} on error."""
+        if not path:
+            return {}
+        import json
+        import os
+
+        if not os.path.exists(path):
+            logger.warning("Synonym source not found: %s; expansion disabled", path)
+            return {}
+        try:
+            with open(path, "r", encoding="utf-8") as fh:
+                data = json.load(fh)
+            if not isinstance(data, dict):
+                logger.warning("Synonym source %s is not a dict; ignoring", path)
+                return {}
+            return {str(k): list(v) for k, v in data.items()}
+        except Exception as exc:
+            logger.warning("Failed to load synonym source %s: %s", path, exc)
+            return {}

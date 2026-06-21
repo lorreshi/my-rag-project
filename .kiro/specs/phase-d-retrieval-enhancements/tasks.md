@@ -24,7 +24,7 @@
 | T5 | HybridSearch 候选池接线 + from_settings 走工厂 | ✅ | [x] | — |
 | T6 | 共享 _match_filters + SparseRetriever 前置过滤 | ✅ | [x] | 5 |
 | T7 | BaseFilterExtractor + 规则抽取 + QueryProcessor 合并 | ✅ | [x] | 4 |
-| T8 | 同义词 OR-扩展（expanded_keywords） | ✅ | [ ] | 8 |
+| T8 | 同义词 OR-扩展（expanded_keywords） | ✅ | [x] | 8 |
 | T9 | Reranker head/tail 分数尺度统一 | ✅ | [x] | 6 |
 | T10 | QueryTransform 基类 + NoOp + HybridSearch 多列表接线 | ✅ | [ ] | 13 |
 | T11 | MultiQueryTransform（改写+并发+缓存+降级） | ✅ | [ ] | 10, 13 |
@@ -137,7 +137,7 @@ graph TD
   - **测试方法**：`pytest -q tests/unit/test_filter_extractor.py tests/unit/test_query_processor_filters.py`（Property 4：合并优先级 + 异常吞没 + 默认关回归）。
   - _Requirements: 2.1, 2.2, 2.3, 2.4, 2.5, 2.6, 2.7_
 
-- [ ] 8. 同义词 OR-扩展（expanded_keywords）
+- [x] 8. 同义词 OR-扩展（expanded_keywords）
   - **目标**：把同义词/别名并入 BM25 查询，稠密侧保持单次，默认关。
   - **修改文件**：`src/core/query_engine/query_processor.py`（`ProcessedQuery.expanded_keywords` + `_expand_keywords`）、`src/core/query_engine/hybrid_search.py`（稀疏路传 expanded）、`tests/unit/test_synonym_expansion.py`
   - **实现**：`ProcessedQuery` 新增 `expanded_keywords`；`_expand_keywords(keywords)` 由 `synonym_map` 扩展、去重保序、原词在前；`enable_synonym_expansion` 开启时 `HybridSearch` 把 `expanded_keywords` 传稀疏路，否则传 `keywords`；`synonym_source` 文件缺失降级空表。
