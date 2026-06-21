@@ -16,7 +16,7 @@ class FakeLoader:
 
 
 class FakeChunker:
-    def split_document(self, document):
+    def split_document(self, document, collection="default"):
         return [
             Chunk(id="c0", text="hello", metadata={"source_path": document.source_path, "chunk_index": 0}, source_ref=document.id),
             Chunk(id="c1", text="world", metadata={"source_path": document.source_path, "chunk_index": 1}, source_ref=document.id),
