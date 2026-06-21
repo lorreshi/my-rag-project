@@ -32,7 +32,7 @@
 | T13 | MMR 多样性阶段 | ✅ | [x] | 11 |
 | T14 | 相关性阈值 / abstain 闸门 | ✅ | [x] | 12 |
 | T15 | 向后兼容与降级回归（集成） | ✅ | [x] | 7, 9 |
-| T16 | 端到端：NFKC 重摄取 + 多增强串联验证（集成） | ✅ | [ ] | — |
+| T16 | 端到端：NFKC 重摄取 + 多增强串联验证（集成） | ✅ | [x] | — |
 
 ---
 
@@ -201,7 +201,7 @@ graph TD
   - **测试方法**：`pytest -q tests/integration/test_retrieval_backward_compat.py tests/integration/test_retrieval_degradation.py`（Property 7 降级 + Property 9 全关=基线）。
   - _Requirements: 12.1, 12.2, 12.3, 12.5_
 
-- [ ] 16. 端到端：NFKC 重摄取 + 多增强串联验证（集成）
+- [x] 16. 端到端：NFKC 重摄取 + 多增强串联验证（集成）
   - **目标**：验证启用归一化后的重摄取与各增强在真实链路串联可用。
   - **修改文件**：`tests/integration/test_retrieval_enhancements_e2e.py`、`tests/fixtures/`（含全角/繁体样例）
   - **实现**：用启用 NFKC 的分词层重跑摄取重建 BM25；跑加权融合 + 稀疏前置过滤 + 同义词扩展 + （开启）multi_query/MMR/阈值，断言 trace 各阶段计数合理、降级路径可用；含一组归一化前后 BM25 命中率回归对比。
