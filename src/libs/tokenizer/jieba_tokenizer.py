@@ -17,6 +17,7 @@ import re
 import jieba
 
 from src.libs.tokenizer.base_tokenizer import BaseTokenizer
+from src.libs.tokenizer.normalize import normalize_text
 
 # Runs of ASCII letters / digits (used for the non-CJK portions of the text).
 _ASCII_RE = re.compile(r"[A-Za-z0-9]+")
@@ -55,21 +56,40 @@ class JiebaTokenizer(BaseTokenizer):
         self,
         lowercase: bool = True,
         stopwords: set[str] | None = None,
+        nfkc: bool = True,
+        to_simplified: bool = False,
     ):
         """Initialize JiebaTokenizer.
 
         Args:
-            lowercase: Whether to lowercase tokens before filtering.
+            lowercase: Whether to case-fold tokens (applied via ``normalize_text``).
             stopwords: Optional stopword set; defaults to the merged
                 Chinese + English set.
+            nfkc: Apply NFKC normalization before segmentation (full/half-width).
+            to_simplified: Convert traditional->simplified before segmentation
+                (needs OpenCC; degrades to no-op if missing).
         """
         self._lowercase = lowercase
         self._stopwords = (
             DEFAULT_STOPWORDS if stopwords is None else stopwords
         )
+        self._nfkc = nfkc
+        self._to_simplified = to_simplified
 
     def tokenize(self, text: str) -> list[str]:
         if not text or not text.strip():
+            return []
+
+        # Deterministic normalization BEFORE segmentation, shared with the
+        # ingestion side and QueryProcessor so the BM25 vocabulary stays
+        # symmetric. Case folding is handled here (not per-token below).
+        text = normalize_text(
+            text,
+            nfkc=self._nfkc,
+            casefold=self._lowercase,
+            to_simplified=self._to_simplified,
+        )
+        if not text.strip():
             return []
 
         raw: list[str] = []
@@ -88,6 +108,5 @@ class JiebaTokenizer(BaseTokenizer):
         if pos < len(text):
             raw.extend(_ASCII_RE.findall(text[pos:]))
 
-        if self._lowercase:
-            raw = [t.lower() for t in raw]
+        # Tokens are already case-folded via normalize_text above.
         return [t for t in raw if t not in self._stopwords]

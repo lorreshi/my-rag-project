@@ -116,7 +116,9 @@ class TestSerialization:
         qp = QueryProcessor()
         result = qp.process("vector search", filters={"collection": "c"})
         d = result.to_dict()
-        assert set(d.keys()) == {"raw_query", "normalized_query", "keywords", "filters"}
+        assert set(d.keys()) == {
+            "raw_query", "normalized_query", "keywords", "expanded_keywords", "filters"
+        }
         assert d["filters"] == {"collection": "c"}
 
     def test_is_processed_query(self):

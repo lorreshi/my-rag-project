@@ -15,6 +15,7 @@ import logging
 from typing import TYPE_CHECKING
 
 from src.core.types import RetrievalResult
+from src.core.query_engine.metadata_filter import match_filters
 
 if TYPE_CHECKING:
     from src.core.settings import Settings
@@ -72,13 +73,20 @@ class SparseRetriever:
         self,
         keywords: list[str],
         top_k: int = 20,
+        filters: "dict | None" = None,
+        overfetch: int = 4,
         trace: "TraceContext | None" = None,
     ) -> list[RetrievalResult]:
-        """Retrieve chunks by BM25 keyword scoring.
+        """Retrieve chunks by BM25 keyword scoring, with optional pre-filter.
 
         Args:
             keywords: Tokenized query keywords (from QueryProcessor).
             top_k: Maximum number of results.
+            filters: Optional metadata filters. BM25's inverted index has no
+                metadata, so we over-fetch (``top_k * overfetch``) and filter at
+                the ``get_by_ids`` resolution step using the SAME strict/lenient
+                rule as the post-filter, then truncate to ``top_k``.
+            overfetch: Over-fetch multiplier used only when ``filters`` is set.
             trace: Optional trace context.
 
         Returns:
@@ -92,7 +100,10 @@ class SparseRetriever:
                 trace.end_stage(details={"count": 0, "reason": "no_keywords"})
             return []
 
-        scored = self._bm25.query(keywords, top_k=top_k)  # [(chunk_id, score)]
+        # Over-fetch when filtering so we can still fill top_k after dropping
+        # non-matching candidates.
+        fetch_k = top_k * max(1, overfetch) if filters else top_k
+        scored = self._bm25.query(keywords, top_k=fetch_k)  # [(chunk_id, score)]
         if not scored:
             if trace:
                 trace.end_stage(details={"count": 0})
@@ -111,14 +122,19 @@ class SparseRetriever:
                     "BM25 hit %s missing from vector store; skipping", chunk_id
                 )
                 continue
+            meta = rec.get("metadata", {})
+            if filters and not match_filters(meta, filters):
+                continue  # pre-filter: drop non-matching candidate
             results.append(
                 RetrievalResult(
                     chunk_id=chunk_id,
                     score=score,
                     text=rec.get("text", ""),
-                    metadata=rec.get("metadata", {}),
+                    metadata=meta,
                 )
             )
+            if len(results) >= top_k:
+                break
 
         if trace:
             trace.end_stage(details={"count": len(results), "method": "bm25"})

@@ -74,6 +74,29 @@ def run_query(
     else:
         results = candidates[:top_k]
 
+    # Optional MMR diversity (default off -> unchanged behaviour).
+    if getattr(settings.retrieval, "enable_mmr", False) and results:
+        try:
+            from src.core.query_engine.diversity import apply_mmr
+            from src.libs.embedding.embedding_factory import EmbeddingFactory
+
+            embedding = EmbeddingFactory.create(settings)
+            results = apply_mmr(
+                results,
+                query,
+                embed_fn=lambda texts: embedding.embed(texts),
+                lambda_=getattr(settings.retrieval, "mmr_lambda", 0.5),
+                top_k=top_k,
+            )
+        except Exception as exc:  # pragma: no cover - defensive
+            logger.warning("MMR step skipped: %s", exc)
+
+    # Optional relevance threshold / abstain (default off).
+    threshold = getattr(settings.retrieval, "min_score_threshold", 0.0)
+    if threshold and threshold > 0 and results:
+        from src.core.query_engine.threshold import apply_threshold
+        results = apply_threshold(results, threshold)
+
     return results
 
 

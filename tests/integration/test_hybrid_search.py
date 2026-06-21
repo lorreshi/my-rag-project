@@ -24,7 +24,7 @@ class FakeRetriever:
         self._kind = kind
         self.called_with = None
 
-    def retrieve(self, query_or_keywords, top_k=20, filters=None, trace=None):
+    def retrieve(self, query_or_keywords, top_k=20, filters=None, **kwargs):
         self.called_with = {"arg": query_or_keywords, "top_k": top_k, "filters": filters}
         if self._raises:
             raise RuntimeError(f"{self._kind} boom")
@@ -66,8 +66,8 @@ class TestOrchestration:
         sparse = FakeRetriever([], kind="sparse")
         hs = _hybrid(dense, sparse)
         hs.search("  How to   configure Azure  ")
-        # dense receives the normalized query text
-        assert dense.called_with["arg"] == "How to configure Azure"
+        # dense receives the normalized query text (casefolded per T2 normalize)
+        assert dense.called_with["arg"] == "how to configure azure"
 
     def test_sparse_gets_keywords(self):
         dense = FakeRetriever([], kind="dense")
