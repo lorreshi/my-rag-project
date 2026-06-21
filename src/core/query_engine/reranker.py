@@ -124,8 +124,9 @@ class Reranker:
                         metadata=dict(original.metadata),
                     )
                 )
-            # Append any non-reranked tail (kept in fusion order).
-            merged = reordered + tail
+            # Append any non-reranked tail (kept in fusion order), unifying the
+            # score scale so the whole list is monotonically non-increasing.
+            merged = self._unify_scores(reordered, tail, backend_name)
         except Exception as exc:
             logger.warning(
                 "Rerank backend '%s' failed (%s); falling back to fusion order",
@@ -147,6 +148,43 @@ class Reranker:
             )
 
         return result
+
+    @staticmethod
+    def _unify_scores(
+        head: list[RetrievalResult],
+        tail: list[RetrievalResult],
+        backend: str,
+        eps: float = 1e-6,
+    ) -> list[RetrievalResult]:
+        """Merge head (reranked) + tail (fusion order) on one monotonic scale.
+
+        The head carries backend (e.g. cross-encoder) scores while the tail
+        carries RRF fusion scores — two incomparable scales. To keep the final
+        list's ``score`` monotonically non-increasing and ``query.py``'s display
+        meaningful, the tail is monotonically compressed just below the head's
+        minimum score. Original scores are preserved in metadata
+        (``raw_score`` + ``score_source``) for traces / dashboards.
+
+        Head ordering and scores come from the backend (best first); only the
+        head->tail boundary is unified here.
+        """
+        for r in head:
+            r.metadata.setdefault("raw_score", r.score)
+            r.metadata["score_source"] = backend
+
+        if not head:
+            # Defensive: nothing reranked -> tail already on the fusion scale.
+            return list(tail)
+
+        out = list(head)
+        if tail:
+            min_head = min(r.score for r in head)
+            for i, r in enumerate(tail):
+                r.metadata["raw_score"] = r.score
+                r.metadata["score_source"] = "rrf"
+                r.score = min_head - eps * (i + 1)
+                out.append(r)
+        return out
 
     @staticmethod
     def _finalize(

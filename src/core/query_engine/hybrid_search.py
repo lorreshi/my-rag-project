@@ -19,11 +19,16 @@ import logging
 from typing import TYPE_CHECKING, Any
 
 from src.core.types import RetrievalResult
+from src.core.query_engine.metadata_filter import (
+    STRUCTURED_FILTER_KEYS,
+    match_filters,
+)
 
 if TYPE_CHECKING:
     from src.core.query_engine.dense_retriever import DenseRetriever
-    from src.core.query_engine.fusion import ReciprocalRankFusion
+    from src.core.query_engine.fusion import BaseFusion
     from src.core.query_engine.query_processor import QueryProcessor
+    from src.core.query_engine.query_transform import BaseQueryTransform
     from src.core.query_engine.sparse_retriever import SparseRetriever
     from src.core.settings import Settings
     from src.core.trace.trace_context import TraceContext
@@ -35,24 +40,23 @@ class HybridSearch:
     """Hybrid (dense + sparse) retrieval orchestrator."""
 
     # Structured metadata fields produced at split time (e.g. by
-    # TableAwareSplitter). Filtering on these uses a STRICT policy: a candidate
-    # missing the key is treated as a non-match and excluded, so e.g. filtering
-    # by ``sheet_name`` returns only chunks belonging to that sheet
-    # (Requirement 7.1). Generic filter keys (doc_type/collection/...) keep the
-    # lenient missing->include policy to avoid dropping recall on incomplete
-    # metadata.
-    _STRUCTURED_FILTER_KEYS = frozenset(
-        {"sheet_name", "row_start", "row_end", "is_table"}
-    )
+    # TableAwareSplitter); STRICT missing policy. Kept as a class alias of the
+    # shared constant so existing references continue to work.
+    _STRUCTURED_FILTER_KEYS = STRUCTURED_FILTER_KEYS
 
     def __init__(
         self,
         query_processor: "QueryProcessor",
         dense_retriever: "DenseRetriever",
         sparse_retriever: "SparseRetriever",
-        fusion: "ReciprocalRankFusion",
+        fusion: "BaseFusion",
         settings: "Settings | None" = None,
         candidate_multiplier: int = 2,
+        top_k_dense: int = 20,
+        top_k_sparse: int = 20,
+        sparse_filter_overfetch: int = 4,
+        enable_synonym_expansion: bool = False,
+        query_transform: "BaseQueryTransform | None" = None,
     ):
         """Initialize HybridSearch.
 
@@ -60,10 +64,12 @@ class HybridSearch:
             query_processor: Produces keywords + filters from the raw query.
             dense_retriever: Semantic retriever.
             sparse_retriever: BM25 retriever.
-            fusion: RRF fusion.
+            fusion: Fusion strategy (RRF / weighted_sum via FusionFactory).
             settings: Optional settings (for default top_k values).
-            candidate_multiplier: Each route fetches top_k * multiplier
-                candidates before fusion, improving recall before the cut.
+            candidate_multiplier: Each route fetches its configured candidate
+                width * multiplier before fusion, improving recall before the cut.
+            top_k_dense: Base dense candidate width (from settings.retrieval).
+            top_k_sparse: Base sparse candidate width (from settings.retrieval).
         """
         self._qp = query_processor
         self._dense = dense_retriever
@@ -71,6 +77,14 @@ class HybridSearch:
         self._fusion = fusion
         self._settings = settings
         self._multiplier = max(1, candidate_multiplier)
+        self._top_k_dense = max(1, top_k_dense)
+        self._top_k_sparse = max(1, top_k_sparse)
+        self._sparse_overfetch = max(1, sparse_filter_overfetch)
+        self._synonym_expansion = enable_synonym_expansion
+        if query_transform is None:
+            from src.core.query_engine.query_transform import NoOpTransform
+            query_transform = NoOpTransform()
+        self._query_transform = query_transform
 
     def search(
         self,
@@ -94,13 +108,22 @@ class HybridSearch:
             trace.start_stage("hybrid_search")
 
         processed = self._qp.process(query, filters=filters, trace=trace)
-        candidate_k = top_k * self._multiplier
+        # Config-driven candidate pool widths (no longer top_k * hardcoded 2).
+        dense_k = max(top_k, self._top_k_dense) * self._multiplier
+        sparse_k = max(top_k, self._top_k_sparse) * self._multiplier
 
-        dense_results = self._run_dense(processed, candidate_k, trace)
-        sparse_results = self._run_sparse(processed, candidate_k, trace)
+        # Query transform (default NoOp -> single dense query == baseline).
+        transformed = self._query_transform.transform(query, trace=trace)
+        dense_lists = [
+            self._run_dense_text(
+                self._qp.normalize_for_dense(variant), dense_k, processed.filters, trace
+            )
+            for variant in transformed.dense_queries
+        ]
+        sparse_results = self._run_sparse(processed, sparse_k, trace)
 
-        # Fuse available routes; if one is empty, fusion still works.
-        fused = self._fusion.fuse([dense_results, sparse_results], trace=trace)
+        # Fuse all dense lists + the sparse list; empty lists are harmless.
+        fused = self._fusion.fuse([*dense_lists, sparse_results], trace=trace)
 
         # Post-filter safety net (covers cases the stores didn't pre-filter).
         filtered = self._apply_metadata_filters(fused, processed.filters)
@@ -110,10 +133,12 @@ class HybridSearch:
         if trace:
             trace.end_stage(
                 details={
-                    "dense_count": len(dense_results),
+                    "dense_lists": len(dense_lists),
+                    "dense_count": sum(len(d) for d in dense_lists),
                     "sparse_count": len(sparse_results),
                     "fused_count": len(fused),
                     "final_count": len(final),
+                    "query_transform_degraded": transformed.degraded,
                 }
             )
 
@@ -123,12 +148,14 @@ class HybridSearch:
     # Route execution with degradation
     # ------------------------------------------------------------------
 
-    def _run_dense(self, processed, candidate_k, trace) -> list[RetrievalResult]:
+    def _run_dense_text(
+        self, text, candidate_k, filters, trace
+    ) -> list[RetrievalResult]:
         try:
             return self._dense.retrieve(
-                processed.normalized_query,
+                text,
                 top_k=candidate_k,
-                filters=processed.filters or None,
+                filters=filters or None,
                 trace=trace,
             )
         except Exception as exc:
@@ -136,9 +163,18 @@ class HybridSearch:
             return []
 
     def _run_sparse(self, processed, candidate_k, trace) -> list[RetrievalResult]:
+        keywords = (
+            processed.expanded_keywords
+            if self._synonym_expansion
+            else processed.keywords
+        )
         try:
             return self._sparse.retrieve(
-                processed.keywords, top_k=candidate_k, trace=trace
+                keywords,
+                top_k=candidate_k,
+                filters=processed.filters or None,
+                overfetch=self._sparse_overfetch,
+                trace=trace,
             )
         except Exception as exc:
             logger.warning("Sparse retrieval failed, degrading to dense-only: %s", exc)
@@ -172,14 +208,7 @@ class HybridSearch:
             return candidates
 
         def _keep(item: RetrievalResult) -> bool:
-            for key, value in filters.items():
-                if key not in item.metadata:
-                    if key in cls._STRUCTURED_FILTER_KEYS:
-                        return False  # structured: missing -> exclude (strict)
-                    continue  # generic: missing -> include (lenient)
-                if item.metadata[key] != value:
-                    return False
-            return True
+            return match_filters(item.metadata, filters, cls._STRUCTURED_FILTER_KEYS)
 
         return [c for c in candidates if _keep(c)]
 
@@ -187,18 +216,66 @@ class HybridSearch:
     def from_settings(cls, settings: "Settings", **overrides: Any) -> "HybridSearch":
         """Build a HybridSearch with real components from settings."""
         from src.core.query_engine.dense_retriever import DenseRetriever
-        from src.core.query_engine.fusion import ReciprocalRankFusion
+        from src.core.query_engine.fusion_factory import FusionFactory
         from src.core.query_engine.query_processor import QueryProcessor
         from src.core.query_engine.sparse_retriever import SparseRetriever
         from src.libs.tokenizer import TokenizerFactory
 
+        retrieval = getattr(settings, "retrieval", None)
+        filter_extractor = None
+        if getattr(retrieval, "enable_filter_extraction", False):
+            from src.core.query_engine.filter_extractor import RuleBasedFilterExtractor
+            filter_extractor = RuleBasedFilterExtractor()
+        synonym_map: dict[str, list[str]] = {}
+        if getattr(retrieval, "enable_synonym_expansion", False):
+            synonym_map = cls._load_synonyms(getattr(retrieval, "synonym_source", ""))
         qp = overrides.get("query_processor") or QueryProcessor(
-            tokenizer=TokenizerFactory.create(settings)
+            tokenizer=TokenizerFactory.create(settings),
+            nfkc=getattr(retrieval, "enable_nfkc", True),
+            casefold=getattr(retrieval, "normalize_casefold", True),
+            to_simplified=getattr(retrieval, "normalize_to_simplified", False),
+            filter_extractor=filter_extractor,
+            synonym_map=synonym_map,
         )
         dense = overrides.get("dense_retriever") or DenseRetriever(settings=settings)
         sparse = overrides.get("sparse_retriever") or SparseRetriever(settings=settings)
-        fusion = overrides.get("fusion") or ReciprocalRankFusion(
-            k=getattr(settings.retrieval, "rrf_k", 60)
-            if hasattr(settings, "retrieval") else 60
+        fusion = overrides.get("fusion") or FusionFactory.create(settings)
+        query_transform = overrides.get("query_transform")
+        if query_transform is None:
+            from src.core.query_engine.query_transform_factory import QueryTransformFactory
+            query_transform = QueryTransformFactory.create(settings)
+        return cls(
+            qp,
+            dense,
+            sparse,
+            fusion,
+            settings=settings,
+            candidate_multiplier=getattr(retrieval, "candidate_multiplier", 2),
+            top_k_dense=getattr(retrieval, "top_k_dense", 20),
+            top_k_sparse=getattr(retrieval, "top_k_sparse", 20),
+            sparse_filter_overfetch=getattr(retrieval, "sparse_filter_overfetch", 4),
+            enable_synonym_expansion=getattr(retrieval, "enable_synonym_expansion", False),
+            query_transform=query_transform,
         )
-        return cls(qp, dense, sparse, fusion, settings=settings)
+
+    @staticmethod
+    def _load_synonyms(path: str) -> dict[str, list[str]]:
+        """Load a synonym map (JSON: term -> [aliases]); degrade to {} on error."""
+        if not path:
+            return {}
+        import json
+        import os
+
+        if not os.path.exists(path):
+            logger.warning("Synonym source not found: %s; expansion disabled", path)
+            return {}
+        try:
+            with open(path, "r", encoding="utf-8") as fh:
+                data = json.load(fh)
+            if not isinstance(data, dict):
+                logger.warning("Synonym source %s is not a dict; ignoring", path)
+                return {}
+            return {str(k): list(v) for k, v in data.items()}
+        except Exception as exc:
+            logger.warning("Failed to load synonym source %s: %s", path, exc)
+            return {}
