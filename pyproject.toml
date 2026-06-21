@@ -20,6 +20,12 @@ dev = [
     "pytest-mock>=3.12",
     "pytest-asyncio>=0.23",
 ]
+# Traditional->Simplified Chinese normalization (retrieval.normalize_to_simplified).
+# Only required when that toggle is enabled; the pipeline degrades gracefully
+# (skips t2s with a warning) when this is not installed.
+opencc = [
+    "opencc-python-reimplemented>=0.1.7",
+]
 
 [tool.setuptools.packages.find]
 where = ["."]

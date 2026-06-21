@@ -18,7 +18,7 @@
 | 任务编号 | 任务名称 | 单元测试 | 状态 | 关联 Property |
 |---------|---------|---------|------|--------------|
 | T1 | RetrievalConfig 字段扩展 + settings.yaml 同步 | ✅ | [x] | 9 |
-| T2 | 共享 normalize_text + 接入分词两侧/_normalize | ✅ | [ ] | 1, 2 |
+| T2 | 共享 normalize_text + 接入分词两侧/_normalize | ✅ | [x] | 1, 2 |
 | T3 | BaseFusion 抽出 + 加权 RRF | ✅ | [ ] | 3, 13 |
 | T4 | WeightedSumFusion + FusionFactory | ✅ | [ ] | — |
 | T5 | HybridSearch 候选池接线 + from_settings 走工厂 | ✅ | [ ] | — |
@@ -89,7 +89,7 @@ graph TD
   - **测试方法**：`pytest -q tests/unit/test_settings_retrieval.py`（全字段/缺省/多余键三类用例）。
   - _Requirements: 3.2, 3.4, 12.4_
 
-- [ ] 2. 共享 normalize_text + 接入分词两侧 / _normalize
+- [x] 2. 共享 normalize_text + 接入分词两侧 / _normalize
   - **目标**：把确定性归一化（NFKC + casefold + 可选繁简）放进共享层，保证 BM25 词表对称、稠密侧同 form。
   - **修改文件**：`src/libs/tokenizer/normalize.py`（新增）、`src/libs/tokenizer/jieba_tokenizer.py`、`src/libs/tokenizer/regex_tokenizer.py`、`src/core/query_engine/query_processor.py`、`tests/unit/test_normalize.py`、`tests/unit/test_tokenizer_consistency.py`
   - **实现**：`normalize_text(text, *, casefold=True, to_simplified=False)`：NFKC → casefold → 可选 `_to_simplified`（OpenCC t2s，缺失则 warning 跳过）；tokenizer 在 `tokenize` 入口调用（参数取自 settings），原内部 `lower()` 由 casefold 接管；`QueryProcessor._normalize` 复用同一函数后再折叠空白。

@@ -6,6 +6,7 @@ word-level implementation (``JiebaTokenizer``), and the config-driven
 """
 from src.libs.tokenizer.base_tokenizer import BaseTokenizer
 from src.libs.tokenizer.jieba_tokenizer import JiebaTokenizer
+from src.libs.tokenizer.normalize import normalize_text
 from src.libs.tokenizer.tokenizer_factory import TokenizerFactory
 
-__all__ = ["BaseTokenizer", "JiebaTokenizer", "TokenizerFactory"]
+__all__ = ["BaseTokenizer", "JiebaTokenizer", "TokenizerFactory", "normalize_text"]

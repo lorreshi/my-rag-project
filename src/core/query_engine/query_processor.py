@@ -18,7 +18,7 @@ import re
 from dataclasses import dataclass, field
 from typing import TYPE_CHECKING, Any
 
-from src.libs.tokenizer import BaseTokenizer, JiebaTokenizer
+from src.libs.tokenizer import BaseTokenizer, JiebaTokenizer, normalize_text
 
 if TYPE_CHECKING:
     from src.core.trace.trace_context import TraceContext
@@ -47,7 +47,13 @@ class ProcessedQuery:
 class QueryProcessor:
     """Extract keywords and parse filters from a raw query."""
 
-    def __init__(self, tokenizer: BaseTokenizer | None = None):
+    def __init__(
+        self,
+        tokenizer: BaseTokenizer | None = None,
+        nfkc: bool = True,
+        casefold: bool = True,
+        to_simplified: bool = False,
+    ):
         """Initialize QueryProcessor.
 
         Args:
@@ -55,8 +61,20 @@ class QueryProcessor:
                 ``JiebaTokenizer()`` (matching ``TokenizerFactory``'s default
                 and the ingestion-side ``SparseEncoder``), so
                 ``QueryProcessor()`` remains usable without arguments.
+            nfkc: Apply NFKC normalization to the dense ``normalized_query``.
+            casefold: Apply case folding to the dense ``normalized_query``.
+            to_simplified: Apply traditional->simplified to ``normalized_query``
+                (needs OpenCC; degrades to no-op when missing).
+
+        The normalization flags MUST match those used by ``tokenizer`` so the
+        dense query text and the sparse BM25 keywords share one canonical form.
+        ``TokenizerFactory`` / ``HybridSearch.from_settings`` wire both from the
+        same ``settings.retrieval`` values.
         """
         self._tokenizer: BaseTokenizer = tokenizer or JiebaTokenizer()
+        self._nfkc = nfkc
+        self._casefold = casefold
+        self._to_simplified = to_simplified
 
     def process(
         self,
@@ -101,10 +119,23 @@ class QueryProcessor:
         return result
 
     def _normalize(self, query: str) -> str:
-        """Collapse whitespace; preserve content for embedding."""
+        """Apply deterministic normalization, then collapse whitespace.
+
+        Serves the dense side (``normalized_query`` feeds embedding). Uses the
+        same ``normalize_text`` pipeline (NFKC + casefold + optional t2s) as the
+        shared tokenizer, so dense text and sparse BM25 keywords share one
+        canonical form. Whitespace collapsing is dense-only and does not affect
+        tokenization.
+        """
         if not query:
             return ""
-        return re.sub(r"\s+", " ", query).strip()
+        text = normalize_text(
+            query,
+            nfkc=self._nfkc,
+            casefold=self._casefold,
+            to_simplified=self._to_simplified,
+        )
+        return re.sub(r"\s+", " ", text).strip()
 
     def _extract_keywords(self, text: str) -> list[str]:
         """Tokenize via the shared tokenizer, deduped preserving first-seen order.
