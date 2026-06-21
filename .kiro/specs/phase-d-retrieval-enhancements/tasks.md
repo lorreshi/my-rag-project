@@ -25,7 +25,7 @@
 | T6 | 共享 _match_filters + SparseRetriever 前置过滤 | ✅ | [ ] | 5 |
 | T7 | BaseFilterExtractor + 规则抽取 + QueryProcessor 合并 | ✅ | [ ] | 4 |
 | T8 | 同义词 OR-扩展（expanded_keywords） | ✅ | [ ] | 8 |
-| T9 | Reranker head/tail 分数尺度统一 | ✅ | [ ] | 6 |
+| T9 | Reranker head/tail 分数尺度统一 | ✅ | [x] | 6 |
 | T10 | QueryTransform 基类 + NoOp + HybridSearch 多列表接线 | ✅ | [ ] | 13 |
 | T11 | MultiQueryTransform（改写+并发+缓存+降级） | ✅ | [ ] | 10, 13 |
 | T12 | HyDETransform（假设文档+augment+doc_type 门控+降级） | ✅ | [ ] | 10 |
@@ -145,7 +145,7 @@ graph TD
   - **测试方法**：`pytest -q tests/unit/test_synonym_expansion.py`（Property 8：保序去重 + 默认关回归 + 缺失降级）。
   - _Requirements: 7.1, 7.2, 7.3, 7.4, 7.5_
 
-- [ ] 9. Reranker head/tail 分数尺度统一
+- [x] 9. Reranker head/tail 分数尺度统一
   - **目标**：消除精排段（cross-encoder）与未精排段（RRF）分数尺度混用，确立整列单调契约。
   - **修改文件**：`src/core/query_engine/reranker.py`、`tests/unit/test_reranker_scores.py`
   - **实现**：新增 `_unify_scores(head, tail, eps)`：tail 分数单调压缩到 head 最小分之下，原始分写入 `metadata["raw_score"]`/`metadata["score_source"]`；`rerank` 成功路径合并后调用；保留 `rerank_fallback`/`rerank_backend`。
