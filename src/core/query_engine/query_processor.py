@@ -21,6 +21,7 @@ from typing import TYPE_CHECKING, Any
 from src.libs.tokenizer import BaseTokenizer, JiebaTokenizer, normalize_text
 
 if TYPE_CHECKING:
+    from src.core.query_engine.filter_extractor import BaseFilterExtractor
     from src.core.trace.trace_context import TraceContext
 
 logger = logging.getLogger(__name__)
@@ -53,6 +54,7 @@ class QueryProcessor:
         nfkc: bool = True,
         casefold: bool = True,
         to_simplified: bool = False,
+        filter_extractor: "BaseFilterExtractor | None" = None,
     ):
         """Initialize QueryProcessor.
 
@@ -65,6 +67,9 @@ class QueryProcessor:
             casefold: Apply case folding to the dense ``normalized_query``.
             to_simplified: Apply traditional->simplified to ``normalized_query``
                 (needs OpenCC; degrades to no-op when missing).
+            filter_extractor: Optional, opt-in extractor that parses structured
+                constraints from the query text into ``filters``. When ``None``
+                (default) no extraction happens (behaviour unchanged).
 
         The normalization flags MUST match those used by ``tokenizer`` so the
         dense query text and the sparse BM25 keywords share one canonical form.
@@ -75,6 +80,7 @@ class QueryProcessor:
         self._nfkc = nfkc
         self._casefold = casefold
         self._to_simplified = to_simplified
+        self._filter_extractor = filter_extractor
 
     def process(
         self,
@@ -98,7 +104,7 @@ class QueryProcessor:
 
         normalized = self._normalize(query)
         keywords = self._extract_keywords(normalized)
-        parsed_filters = self._parse_filters(filters)
+        parsed_filters = self._parse_filters(filters, query)
 
         result = ProcessedQuery(
             raw_query=query,
@@ -155,12 +161,22 @@ class QueryProcessor:
             keywords.append(t)
         return keywords
 
-    def _parse_filters(self, filters: dict[str, Any] | None) -> dict[str, Any]:
-        """Normalize the filters structure. Always returns a dict.
+    def _parse_filters(
+        self, filters: dict[str, Any] | None, query: str = ""
+    ) -> dict[str, Any]:
+        """Merge extracted + external filters. Always returns a dict.
 
-        Drops keys with None values; leaves the rest as-is. This is the generic
-        filter contract consumed by retrievers / hybrid search.
+        Precedence: external (pre-supplied) filters win over extracted ones —
+        the extractor only fills keys the caller did not provide. Keys with
+        None values are dropped. With no extractor (default) this reduces to
+        "external filters minus None values" (unchanged behaviour).
         """
-        if not filters:
-            return {}
-        return {k: v for k, v in filters.items() if v is not None}
+        merged: dict[str, Any] = {}
+        if self._filter_extractor is not None and query:
+            try:
+                merged.update(self._filter_extractor.extract(query))
+            except Exception:  # extractor must not raise; be defensive anyway
+                merged = {}
+        if filters:
+            merged.update({k: v for k, v in filters.items() if v is not None})
+        return {k: v for k, v in merged.items() if v is not None}

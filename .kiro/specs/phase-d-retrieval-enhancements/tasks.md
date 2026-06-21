@@ -23,7 +23,7 @@
 | T4 | WeightedSumFusion + FusionFactory | ✅ | [x] | — |
 | T5 | HybridSearch 候选池接线 + from_settings 走工厂 | ✅ | [x] | — |
 | T6 | 共享 _match_filters + SparseRetriever 前置过滤 | ✅ | [x] | 5 |
-| T7 | BaseFilterExtractor + 规则抽取 + QueryProcessor 合并 | ✅ | [ ] | 4 |
+| T7 | BaseFilterExtractor + 规则抽取 + QueryProcessor 合并 | ✅ | [x] | 4 |
 | T8 | 同义词 OR-扩展（expanded_keywords） | ✅ | [ ] | 8 |
 | T9 | Reranker head/tail 分数尺度统一 | ✅ | [x] | 6 |
 | T10 | QueryTransform 基类 + NoOp + HybridSearch 多列表接线 | ✅ | [ ] | 13 |
@@ -129,7 +129,7 @@ graph TD
   - **测试方法**：`pytest -q tests/unit/test_sparse_prefilter.py`（Property 5：strict/lenient + 命中集等价 + 无 filters 回归）。
   - _Requirements: 5.1, 5.2, 5.3, 5.4, 5.5, 5.6_
 
-- [ ] 7. BaseFilterExtractor + 规则抽取 + QueryProcessor 合并
+- [x] 7. BaseFilterExtractor + 规则抽取 + QueryProcessor 合并
   - **目标**：从查询文本解析结构化约束并入 filters，可插拔、默认关、外部优先。
   - **修改文件**：`src/core/query_engine/filter_extractor.py`（新增）、`src/core/query_engine/query_processor.py`、`tests/unit/test_filter_extractor.py`、`tests/unit/test_query_processor_filters.py`
   - **实现**：`BaseFilterExtractor.extract(query)->dict`（不得抛异常）；`RuleBasedFilterExtractor`（显式 `key:value` + sheet_name/is_table/row 区间规则）；`QueryProcessor` 持有可空 `filter_extractor`，`_parse_filters(filters, query)` 合并：抽取（低优先）⊕ 外部（高优先），丢 None。
