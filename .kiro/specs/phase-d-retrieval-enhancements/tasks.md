@@ -30,7 +30,7 @@
 | T11 | MultiQueryTransform（改写+并发+缓存+降级） | ✅ | [x] | 10, 13 |
 | T12 | HyDETransform（假设文档+augment+doc_type 门控+降级） | ✅ | [x] | 10 |
 | T13 | MMR 多样性阶段 | ✅ | [x] | 11 |
-| T14 | 相关性阈值 / abstain 闸门 | ✅ | [ ] | 12 |
+| T14 | 相关性阈值 / abstain 闸门 | ✅ | [x] | 12 |
 | T15 | 向后兼容与降级回归（集成） | ✅ | [ ] | 7, 9 |
 | T16 | 端到端：NFKC 重摄取 + 多增强串联验证（集成） | ✅ | [ ] | — |
 
@@ -185,7 +185,7 @@ graph TD
   - **测试方法**：`pytest -q tests/unit/test_mmr.py`（Property 11：λ=1 恒等 + 冗余抑制 + 缺向量降级）。
   - _Requirements: 10.1, 10.2, 10.3, 10.4, 10.5_
 
-- [ ] 14. 相关性阈值 / abstain 闸门
+- [x] 14. 相关性阈值 / abstain 闸门
   - **目标**：流水线末端可选阈值闸门，整体相关性不足时返回空（abstain）。
   - **修改文件**：`src/core/query_engine/threshold.py`（新增 `apply_threshold`）、`scripts/query.py` 与 `src/mcp_server/tools/query_knowledge_hub.py`（末端接线）、`tests/unit/test_threshold.py`
   - **实现**：`apply_threshold(results, threshold)`：`threshold<=0` 原样返回；否则 Top1 分数 `<threshold` 返回 `[]`；MCP 工具据空结果输出"知识库未覆盖"。依赖 T9 统一分数尺度。
