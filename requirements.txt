@@ -54,6 +54,7 @@ narwhals==2.22.1
 numpy==2.4.4
 oauthlib==3.3.1
 onnxruntime==1.25.1
+opencc-python-reimplemented==0.1.7  # optional: traditional->simplified (normalize_to_simplified)
 opentelemetry-api==1.42.1
 opentelemetry-exporter-otlp-proto-common==1.42.1
 opentelemetry-exporter-otlp-proto-grpc==1.42.1
