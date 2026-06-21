@@ -28,7 +28,7 @@
 | T9 | Reranker head/tail 分数尺度统一 | ✅ | [x] | 6 |
 | T10 | QueryTransform 基类 + NoOp + HybridSearch 多列表接线 | ✅ | [x] | 13 |
 | T11 | MultiQueryTransform（改写+并发+缓存+降级） | ✅ | [x] | 10, 13 |
-| T12 | HyDETransform（假设文档+augment+doc_type 门控+降级） | ✅ | [ ] | 10 |
+| T12 | HyDETransform（假设文档+augment+doc_type 门控+降级） | ✅ | [x] | 10 |
 | T13 | MMR 多样性阶段 | ✅ | [ ] | 11 |
 | T14 | 相关性阈值 / abstain 闸门 | ✅ | [ ] | 12 |
 | T15 | 向后兼容与降级回归（集成） | ✅ | [ ] | 7, 9 |
