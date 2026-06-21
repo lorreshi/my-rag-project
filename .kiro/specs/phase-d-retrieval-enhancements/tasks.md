@@ -27,7 +27,7 @@
 | T8 | 同义词 OR-扩展（expanded_keywords） | ✅ | [x] | 8 |
 | T9 | Reranker head/tail 分数尺度统一 | ✅ | [x] | 6 |
 | T10 | QueryTransform 基类 + NoOp + HybridSearch 多列表接线 | ✅ | [x] | 13 |
-| T11 | MultiQueryTransform（改写+并发+缓存+降级） | ✅ | [ ] | 10, 13 |
+| T11 | MultiQueryTransform（改写+并发+缓存+降级） | ✅ | [x] | 10, 13 |
 | T12 | HyDETransform（假设文档+augment+doc_type 门控+降级） | ✅ | [ ] | 10 |
 | T13 | MMR 多样性阶段 | ✅ | [ ] | 11 |
 | T14 | 相关性阈值 / abstain 闸门 | ✅ | [ ] | 12 |
@@ -161,7 +161,7 @@ graph TD
   - **测试方法**：`pytest -q tests/unit/test_query_transform_base.py tests/unit/test_hybrid_multilist.py`（Property 13：N=1 等价基线 + 多列表融合）。
   - _Requirements: 8.1, 8.6, 12.1_
 
-- [ ] 11. MultiQueryTransform（改写 + 并发 + 缓存 + 降级）
+- [x] 11. MultiQueryTransform（改写 + 并发 + 缓存 + 降级）
   - **目标**：实现多查询变体改写策略，控制成本并对失败降级。
   - **修改文件**：`src/core/query_engine/query_transform.py`（新增 `MultiQueryTransform`）、`config/prompts/query_rewrite.txt`（新增）、`tests/unit/test_multi_query.py`
   - **实现**：`MultiQueryTransform(llm, n, max_concurrency, cache)`：LLM 改写出 ≤`multi_query_count` 个变体，原 query 始终在列、去重保序；并发上限限制 embedding 调用；`query→变体` 缓存命中不重复调用；异常时返回 `[query]` + `degraded=True`。
