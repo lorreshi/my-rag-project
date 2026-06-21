@@ -19,7 +19,7 @@
 |---------|---------|---------|------|--------------|
 | T1 | RetrievalConfig 字段扩展 + settings.yaml 同步 | ✅ | [x] | 9 |
 | T2 | 共享 normalize_text + 接入分词两侧/_normalize | ✅ | [x] | 1, 2 |
-| T3 | BaseFusion 抽出 + 加权 RRF | ✅ | [ ] | 3, 13 |
+| T3 | BaseFusion 抽出 + 加权 RRF | ✅ | [x] | 3, 13 |
 | T4 | WeightedSumFusion + FusionFactory | ✅ | [ ] | — |
 | T5 | HybridSearch 候选池接线 + from_settings 走工厂 | ✅ | [ ] | — |
 | T6 | 共享 _match_filters + SparseRetriever 前置过滤 | ✅ | [ ] | 5 |
@@ -97,7 +97,7 @@ graph TD
   - **测试方法**：`pytest -q tests/unit/test_normalize.py tests/unit/test_tokenizer_consistency.py`（Property 1 对称性 + Property 2 幂等 + OpenCC 缺失降级）。
   - _Requirements: 1.1, 1.2, 1.3, 1.4, 1.5, 1.6, 1.7_
 
-- [ ] 3. BaseFusion 抽出 + 加权 RRF
+- [x] 3. BaseFusion 抽出 + 加权 RRF
   - **目标**：抽象融合接口并让 RRF 支持每路权重，保持无权时与现状逐项一致。
   - **修改文件**：`src/core/query_engine/fusion.py`、`tests/unit/test_fusion_weighted.py`
   - **实现**：新增 `BaseFusion(ABC).fuse(...)`；`ReciprocalRankFusion(k, weights=None)` 实现 `fused = Σ weight_i/(k+rank)`，`_weight_for(list_idx)` 缺省 1.0；保留确定性排序（score desc, chunk_id asc）。
