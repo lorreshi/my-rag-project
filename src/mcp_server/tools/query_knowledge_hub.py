@@ -45,11 +45,13 @@ class QueryKnowledgeHubTool:
         reranker: Any | None = None,
         response_builder: ResponseBuilder | None = None,
         default_top_k: int = 10,
+        min_score_threshold: float = 0.0,
     ):
         self._hybrid = hybrid_search
         self._reranker = reranker
         self._builder = response_builder or ResponseBuilder()
         self._default_top_k = default_top_k
+        self._min_score_threshold = min_score_threshold
 
     def __call__(
         self,
@@ -76,6 +78,11 @@ class QueryKnowledgeHubTool:
             results = self._reranker.rerank(query, candidates, top_k=top_k, trace=trace)
         else:
             results = candidates[:top_k]
+
+        # Optional abstain gate (default off): drop low-relevance result sets.
+        if self._min_score_threshold and self._min_score_threshold > 0 and results:
+            from src.core.query_engine.threshold import apply_threshold
+            results = apply_threshold(results, self._min_score_threshold)
 
         return self._builder.build(results, query)
 
@@ -106,4 +113,5 @@ class QueryKnowledgeHubTool:
             hybrid_search=hybrid,
             reranker=reranker,
             default_top_k=getattr(settings.retrieval, "top_k_final", 10),
+            min_score_threshold=getattr(settings.retrieval, "min_score_threshold", 0.0),
         )

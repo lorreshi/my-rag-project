@@ -91,6 +91,12 @@ def run_query(
         except Exception as exc:  # pragma: no cover - defensive
             logger.warning("MMR step skipped: %s", exc)
 
+    # Optional relevance threshold / abstain (default off).
+    threshold = getattr(settings.retrieval, "min_score_threshold", 0.0)
+    if threshold and threshold > 0 and results:
+        from src.core.query_engine.threshold import apply_threshold
+        results = apply_threshold(results, threshold)
+
     return results
 
 
