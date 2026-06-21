@@ -1,0 +1,25 @@
+{
+  "description": "Small corpus for T16 normalization re-ingestion E2E. Texts deliberately use full-width ASCII and traditional Chinese so that queries written in half-width / simplified form only align after deterministic normalization (NFKC / OpenCC t2s).",
+  "chunks": [
+    {
+      "id": "c_fullwidth_api",
+      "text": "ＡＰＩ 网关的配置说明：请在 Ｓｅｔｔｉｎｇｓ 面板中填写 endpoint。",
+      "metadata": {"doc_type": "markdown", "sheet_name": null}
+    },
+    {
+      "id": "c_fullwidth_digits",
+      "text": "２０２４ 年度营收报告，季度环比增长显著。",
+      "metadata": {"doc_type": "markdown", "sheet_name": null}
+    },
+    {
+      "id": "c_traditional_db",
+      "text": "資料庫連線設定與備份策略，請參考運維手冊。",
+      "metadata": {"doc_type": "markdown", "sheet_name": null}
+    },
+    {
+      "id": "c_plain_unrelated",
+      "text": "今天天气晴朗，适合散步和阅读。",
+      "metadata": {"doc_type": "markdown", "sheet_name": null}
+    }
+  ]
+}
