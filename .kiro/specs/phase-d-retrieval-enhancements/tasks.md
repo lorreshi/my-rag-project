@@ -20,7 +20,7 @@
 | T1 | RetrievalConfig 字段扩展 + settings.yaml 同步 | ✅ | [x] | 9 |
 | T2 | 共享 normalize_text + 接入分词两侧/_normalize | ✅ | [x] | 1, 2 |
 | T3 | BaseFusion 抽出 + 加权 RRF | ✅ | [x] | 3, 13 |
-| T4 | WeightedSumFusion + FusionFactory | ✅ | [ ] | — |
+| T4 | WeightedSumFusion + FusionFactory | ✅ | [x] | — |
 | T5 | HybridSearch 候选池接线 + from_settings 走工厂 | ✅ | [ ] | — |
 | T6 | 共享 _match_filters + SparseRetriever 前置过滤 | ✅ | [ ] | 5 |
 | T7 | BaseFilterExtractor + 规则抽取 + QueryProcessor 合并 | ✅ | [ ] | 4 |
@@ -105,7 +105,7 @@ graph TD
   - **测试方法**：`pytest -q tests/unit/test_fusion_weighted.py`（Property 3 向后兼容 + Property 13 顺序无关 + 加权排序）。
   - _Requirements: 4.2, 4.4, 4.5, 4.6, 4.8_
 
-- [ ] 4. WeightedSumFusion + FusionFactory
+- [x] 4. WeightedSumFusion + FusionFactory
   - **目标**：补齐 `weighted_sum` 融合与按配置选择融合器的工厂。
   - **修改文件**：`src/core/query_engine/fusion.py`（新增 `WeightedSumFusion`）、`src/core/query_engine/fusion_factory.py`（新增）、`tests/unit/test_fusion_factory.py`
   - **实现**：`WeightedSumFusion(weights)` 对每路分数 min-max 归一化后加权求和；`FusionFactory.create(settings)` 依据 `fusion_algorithm`（`rrf|weighted_sum`）创建，读取 `rrf_k`/`fusion_weights`，未知算法抛 `ValueError`。
