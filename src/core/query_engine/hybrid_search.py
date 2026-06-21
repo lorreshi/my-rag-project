@@ -198,11 +198,16 @@ class HybridSearch:
         from src.libs.tokenizer import TokenizerFactory
 
         retrieval = getattr(settings, "retrieval", None)
+        filter_extractor = None
+        if getattr(retrieval, "enable_filter_extraction", False):
+            from src.core.query_engine.filter_extractor import RuleBasedFilterExtractor
+            filter_extractor = RuleBasedFilterExtractor()
         qp = overrides.get("query_processor") or QueryProcessor(
             tokenizer=TokenizerFactory.create(settings),
             nfkc=getattr(retrieval, "enable_nfkc", True),
             casefold=getattr(retrieval, "normalize_casefold", True),
             to_simplified=getattr(retrieval, "normalize_to_simplified", False),
+            filter_extractor=filter_extractor,
         )
         dense = overrides.get("dense_retriever") or DenseRetriever(settings=settings)
         sparse = overrides.get("sparse_retriever") or SparseRetriever(settings=settings)
