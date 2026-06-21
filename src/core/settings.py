@@ -59,11 +59,40 @@ class VectorStoreConfig:
 @dataclass
 class RetrievalConfig:
     sparse_backend: str = "bm25"
-    fusion_algorithm: str = "rrf"
+    fusion_algorithm: str = "rrf"  # rrf | weighted_sum
     top_k_dense: int = 20
     top_k_sparse: int = 20
     top_k_final: int = 10
     tokenizer: str = "jieba"  # BM25 tokenizer: jieba | regex
+
+    # --- Phase D retrieval enhancements (all default to current behaviour) ---
+    # Candidate pool width / fusion (#3, #4)
+    candidate_multiplier: int = 2
+    rrf_k: int = 60
+    fusion_weights: dict[str, float] = field(default_factory=dict)
+    # Deterministic text normalization (#1)
+    enable_nfkc: bool = True
+    normalize_casefold: bool = True
+    normalize_to_simplified: bool = False  # needs OpenCC; degrades if missing
+    # Filter extraction from query text (#2)
+    enable_filter_extraction: bool = False
+    # Sparse pre-filter (#5)
+    sparse_filter_overfetch: int = 4
+    # Synonym/alias OR-expansion into BM25 (#7)
+    enable_synonym_expansion: bool = False
+    synonym_source: str = ""
+    # Query transform: multi-query / HyDE (#8, #9)
+    query_transform: str = "none"  # none | multi_query | hyde
+    multi_query_count: int = 3
+    query_transform_concurrency: int = 4
+    query_transform_cache: bool = True
+    hyde_augment: bool = True
+    hyde_skip_doc_types: list[str] = field(default_factory=lambda: ["xlsx"])
+    # MMR diversity (#10)
+    enable_mmr: bool = False
+    mmr_lambda: float = 0.5
+    # Relevance threshold / abstain (#11)
+    min_score_threshold: float = 0.0
 
 
 @dataclass

@@ -31,6 +31,26 @@ retrieval:
   top_k_sparse: 20
   top_k_final: 10
   tokenizer: jieba          # jieba | regex (BM25 tokenizer, shared by ingestion + query)
+  # —— Phase D retrieval enhancements (defaults preserve current behaviour) ——
+  candidate_multiplier: 2   # candidate pool multiplier (was hardcoded 2)
+  rrf_k: 60                 # RRF constant (was hardcoded 60)
+  fusion_weights: {}        # per-route weights, e.g. {dense: 1.0, sparse: 1.0}; empty = plain RRF
+  enable_nfkc: true         # NFKC normalization (full/half-width; stdlib)
+  normalize_casefold: true  # case folding (stdlib)
+  normalize_to_simplified: false  # traditional->simplified (needs OpenCC; degrades if missing)
+  enable_filter_extraction: false # parse structured filters from query text
+  sparse_filter_overfetch: 4      # over-fetch multiplier for sparse pre-filter
+  enable_synonym_expansion: false # synonym/alias OR-expansion into BM25
+  synonym_source: ""              # synonym map file path (when expansion enabled)
+  query_transform: none     # none | multi_query | hyde
+  multi_query_count: 3      # number of multi-query variants
+  query_transform_concurrency: 4  # embedding concurrency cap for multi_query/hyde
+  query_transform_cache: true     # cache query->variants/hypothetical doc
+  hyde_augment: true        # HyDE: true=query+hypo doc, false=hypo doc only
+  hyde_skip_doc_types: [xlsx]     # doc_types that skip HyDE (structured data)
+  enable_mmr: false         # MMR diversity stage
+  mmr_lambda: 0.5           # relevance vs diversity (1.0 = no MMR effect)
+  min_score_threshold: 0.0  # abstain threshold (0 = disabled)
 
 splitter:
   type: recursive           # default splitter
