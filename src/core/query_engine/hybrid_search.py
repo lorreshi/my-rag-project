@@ -19,6 +19,10 @@ import logging
 from typing import TYPE_CHECKING, Any
 
 from src.core.types import RetrievalResult
+from src.core.query_engine.metadata_filter import (
+    STRUCTURED_FILTER_KEYS,
+    match_filters,
+)
 
 if TYPE_CHECKING:
     from src.core.query_engine.dense_retriever import DenseRetriever
@@ -35,15 +39,9 @@ class HybridSearch:
     """Hybrid (dense + sparse) retrieval orchestrator."""
 
     # Structured metadata fields produced at split time (e.g. by
-    # TableAwareSplitter). Filtering on these uses a STRICT policy: a candidate
-    # missing the key is treated as a non-match and excluded, so e.g. filtering
-    # by ``sheet_name`` returns only chunks belonging to that sheet
-    # (Requirement 7.1). Generic filter keys (doc_type/collection/...) keep the
-    # lenient missing->include policy to avoid dropping recall on incomplete
-    # metadata.
-    _STRUCTURED_FILTER_KEYS = frozenset(
-        {"sheet_name", "row_start", "row_end", "is_table"}
-    )
+    # TableAwareSplitter); STRICT missing policy. Kept as a class alias of the
+    # shared constant so existing references continue to work.
+    _STRUCTURED_FILTER_KEYS = STRUCTURED_FILTER_KEYS
 
     def __init__(
         self,
@@ -55,6 +53,7 @@ class HybridSearch:
         candidate_multiplier: int = 2,
         top_k_dense: int = 20,
         top_k_sparse: int = 20,
+        sparse_filter_overfetch: int = 4,
     ):
         """Initialize HybridSearch.
 
@@ -77,6 +76,7 @@ class HybridSearch:
         self._multiplier = max(1, candidate_multiplier)
         self._top_k_dense = max(1, top_k_dense)
         self._top_k_sparse = max(1, top_k_sparse)
+        self._sparse_overfetch = max(1, sparse_filter_overfetch)
 
     def search(
         self,
@@ -146,7 +146,11 @@ class HybridSearch:
     def _run_sparse(self, processed, candidate_k, trace) -> list[RetrievalResult]:
         try:
             return self._sparse.retrieve(
-                processed.keywords, top_k=candidate_k, trace=trace
+                processed.keywords,
+                top_k=candidate_k,
+                filters=processed.filters or None,
+                overfetch=self._sparse_overfetch,
+                trace=trace,
             )
         except Exception as exc:
             logger.warning("Sparse retrieval failed, degrading to dense-only: %s", exc)
@@ -180,14 +184,7 @@ class HybridSearch:
             return candidates
 
         def _keep(item: RetrievalResult) -> bool:
-            for key, value in filters.items():
-                if key not in item.metadata:
-                    if key in cls._STRUCTURED_FILTER_KEYS:
-                        return False  # structured: missing -> exclude (strict)
-                    continue  # generic: missing -> include (lenient)
-                if item.metadata[key] != value:
-                    return False
-            return True
+            return match_filters(item.metadata, filters, cls._STRUCTURED_FILTER_KEYS)
 
         return [c for c in candidates if _keep(c)]
 
@@ -219,4 +216,5 @@ class HybridSearch:
             candidate_multiplier=getattr(retrieval, "candidate_multiplier", 2),
             top_k_dense=getattr(retrieval, "top_k_dense", 20),
             top_k_sparse=getattr(retrieval, "top_k_sparse", 20),
+            sparse_filter_overfetch=getattr(retrieval, "sparse_filter_overfetch", 4),
         )
