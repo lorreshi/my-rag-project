@@ -53,6 +53,9 @@ class FakeQP:
     def process(self, query, filters=None, trace=None):
         return self.pq
 
+    def normalize_for_dense(self, query):
+        return query
+
 
 class RecordingSparse:
     def __init__(self):

@@ -130,6 +130,11 @@ class QueryProcessor:
 
         return result
 
+    def normalize_for_dense(self, query: str) -> str:
+        """Public dense normalization, so HybridSearch can normalize each
+        query-transform variant with the SAME pipeline as the baseline query."""
+        return self._normalize(query)
+
     def _normalize(self, query: str) -> str:
         """Apply deterministic normalization, then collapse whitespace.
 
