@@ -9,6 +9,7 @@ factory will attempt to load the model if the library is available.
 """
 from __future__ import annotations
 
+import logging
 from typing import Any, Callable, TYPE_CHECKING
 
 from src.libs.reranker.base_reranker import BaseReranker, RerankCandidate
@@ -16,6 +17,8 @@ from src.libs.reranker.reranker_factory import register_backend
 
 if TYPE_CHECKING:
     from src.core.trace.trace_context import TraceContext
+
+logger = logging.getLogger(__name__)
 
 # Type alias for the scorer function: (query, text) -> float
 Scorer = Callable[[str, str], float]
@@ -83,12 +86,24 @@ def _create_cross_encoder(settings: Any) -> CrossEncoderReranker:
         from sentence_transformers import CrossEncoder  # type: ignore[import-untyped]
 
         model = CrossEncoder(model_name)
+        logger.info("CrossEncoder reranker loaded model '%s'", model_name)
 
         def _scorer(query: str, text: str) -> float:
             return float(model.predict([(query, text)])[0])
 
-    except ImportError:
-        # sentence-transformers not installed — use a length-based stub
+    except Exception as exc:
+        # Covers both ImportError (sentence-transformers absent) and model-load
+        # failures (e.g. model not cached + no network). Fall back to a naive
+        # overlap scorer, which is essentially a no-op on non-whitespace text
+        # (e.g. Chinese), so make the degradation loud rather than silent.
+        logger.warning(
+            "Cross-encoder reranking DEGRADED to a naive whitespace word-overlap "
+            "stub (near no-op on CJK text): could not load model '%s' (%s). "
+            "Install sentence-transformers and ensure the model is reachable to "
+            "enable real reranking.",
+            model_name, exc,
+        )
+
         def _scorer(query: str, text: str) -> float:
             # Deterministic fallback: longer overlap = higher score
             q_words = set(query.lower().split())
