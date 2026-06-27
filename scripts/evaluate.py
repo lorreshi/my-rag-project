@@ -27,6 +27,10 @@ def _build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--test-set", default=_DEFAULT_TEST_SET, help="Path to golden test set JSON.")
     parser.add_argument("--top-k", type=int, default=10, help="Retrieval depth.")
     parser.add_argument("--config", default="config/settings.yaml", help="Settings YAML path.")
+    parser.add_argument(
+        "--generate", action="store_true",
+        help="Run the LLM generation step (required for generation-quality metrics).",
+    )
     parser.add_argument("--json", action="store_true", help="Print the full report as JSON.")
     return parser
 
@@ -36,7 +40,7 @@ def main(argv: list[str] | None = None) -> int:
 
     try:
         settings = load_settings(args.config)
-        runner = EvalRunner.from_settings(settings, top_k=args.top_k)
+        runner = EvalRunner.from_settings(settings, top_k=args.top_k, generate=args.generate)
         report = runner.run(args.test_set)
     except FileNotFoundError as exc:
         logger.error("%s", exc)

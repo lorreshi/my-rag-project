@@ -47,6 +47,8 @@ logs/
 
 # Local-only test fixtures / generated sample documents (not shipped in repo)
 tests/fixtures/sample_documents/
+# Local-only golden set tied to a private ingested corpus (not reproducible in repo)
+tests/fixtures/golden_rail.json
 
 # 临时承接session的md
 tmp_summary_note/
