@@ -26,6 +26,15 @@ def _lazy_ragas(settings: "Settings") -> BaseEvaluator:
 _REGISTRY["ragas"] = _lazy_ragas
 
 
+def _lazy_llm_judge(settings: "Settings") -> BaseEvaluator:
+    """Build an LLMJudgeEvaluator lazily (LLM-as-judge generation metrics)."""
+    from src.libs.evaluator.llm_judge_evaluator import _create_llm_judge
+    return _create_llm_judge(settings)
+
+
+_REGISTRY["llm_judge"] = _lazy_llm_judge
+
+
 def register_backend(
     name: str, factory_fn: Callable[["Settings"], BaseEvaluator]
 ) -> None:
