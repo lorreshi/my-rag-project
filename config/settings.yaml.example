@@ -75,9 +75,10 @@ rerank:
 
 evaluation:
   backends:
-    - custom        # 轻量检索指标：hit_rate / mrr（零依赖）
-    - llm_judge     # LLM-as-judge 生成指标：faithfulness / answer_relevancy / context_precision
-    # - ragas       # 可选；需 pip install ragas（注意与 langchain 版本兼容性）
+    - custom            # 首命中检索指标：hit_rate / mrr（零依赖）
+    - retrieval_metrics # 排序/完整性检索指标：recall@k / ndcg@k / map@k（零依赖）
+    - llm_judge         # LLM-as-judge 生成指标：faithfulness / answer_relevancy / context_precision
+    # - ragas           # 可选；需 pip install ragas（注意与 langchain 版本兼容性）
 
 observability:
   enabled: true
