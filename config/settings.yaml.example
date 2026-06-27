@@ -37,7 +37,9 @@ retrieval:
   fusion_weights: {}        # per-route weights, e.g. {dense: 1.0, sparse: 1.0}; empty = plain RRF
   enable_nfkc: true         # NFKC normalization (full/half-width; stdlib)
   normalize_casefold: true  # case folding (stdlib)
-  normalize_to_simplified: false  # traditional->simplified (needs OpenCC; degrades if missing)
+  normalize_to_simplified: true   # traditional->simplified (needs OpenCC; degrades if missing).
+                                  # A/B on a CJK corpus: improves ranking (mrr/ndcg) of
+                                  # traditional-Chinese queries; no downside when queries are simplified.
   enable_filter_extraction: false # parse structured filters from query text
   sparse_filter_overfetch: 4      # over-fetch multiplier for sparse pre-filter
   enable_synonym_expansion: false # synonym/alias OR-expansion into BM25
