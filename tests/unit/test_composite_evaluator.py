@@ -13,7 +13,7 @@ class StubEvaluator(BaseEvaluator):
         self._name = name
         self._metrics = metrics
 
-    def evaluate(self, query, retrieved_ids, golden_ids, generated_answer="", ground_truth=""):
+    def evaluate(self, query, retrieved_ids, golden_ids, generated_answer="", ground_truth="", contexts=None):
         return dict(self._metrics)
 
     @property

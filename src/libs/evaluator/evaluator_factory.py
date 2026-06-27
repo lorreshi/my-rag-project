@@ -17,6 +17,14 @@ _REGISTRY: dict[str, Callable[["Settings"], BaseEvaluator]] = {
 }
 
 
+def _create_retrieval(settings: "Settings") -> BaseEvaluator:
+    from src.libs.evaluator.retrieval_metrics_evaluator import _create_retrieval_metrics
+    return _create_retrieval_metrics(settings)
+
+
+_REGISTRY["retrieval_metrics"] = _create_retrieval
+
+
 def _lazy_ragas(settings: "Settings") -> BaseEvaluator:
     """Build a RagasEvaluator lazily (avoids importing ragas at module load)."""
     from src.observability.evaluation.ragas_evaluator import _create_ragas
@@ -24,6 +32,15 @@ def _lazy_ragas(settings: "Settings") -> BaseEvaluator:
 
 
 _REGISTRY["ragas"] = _lazy_ragas
+
+
+def _lazy_llm_judge(settings: "Settings") -> BaseEvaluator:
+    """Build an LLMJudgeEvaluator lazily (LLM-as-judge generation metrics)."""
+    from src.libs.evaluator.llm_judge_evaluator import _create_llm_judge
+    return _create_llm_judge(settings)
+
+
+_REGISTRY["llm_judge"] = _lazy_llm_judge
 
 
 def register_backend(

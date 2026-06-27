@@ -17,6 +17,7 @@ class CustomEvaluator(BaseEvaluator):
         golden_ids: list[str],
         generated_answer: str = "",
         ground_truth: str = "",
+        contexts: list[str] | None = None,
     ) -> dict[str, float]:
         golden_set = set(golden_ids)
 

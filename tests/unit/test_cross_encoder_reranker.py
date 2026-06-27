@@ -94,14 +94,39 @@ class TestCrossEncoderReranker:
 @pytest.mark.unit
 class TestCrossEncoderFactory:
 
-    def test_factory_creates_cross_encoder(self):
+    def test_factory_creates_cross_encoder(self, monkeypatch):
+        # Force fallback so the test is fast/hermetic (no model download).
+        import builtins
+
+        real_import = builtins.__import__
+
+        def _fail_st(name, *args, **kwargs):
+            if name == "sentence_transformers" or name.startswith("sentence_transformers."):
+                raise ImportError("forced: sentence-transformers unavailable")
+            return real_import(name, *args, **kwargs)
+
+        monkeypatch.setattr(builtins, "__import__", _fail_st)
+
         settings = Settings(rerank=RerankConfig(backend="cross_encoder"))
         rr = RerankerFactory.create(settings)
         assert isinstance(rr, CrossEncoderReranker)
         assert rr.backend_name == "cross_encoder"
 
-    def test_factory_fallback_scorer_works(self):
-        """Without sentence-transformers installed, factory uses word-overlap scorer."""
+    def test_factory_fallback_scorer_works(self, monkeypatch):
+        """When the model can't be loaded, factory falls back to word-overlap scorer."""
+        # Force the model-load path to fail so the fallback scorer is used,
+        # regardless of whether sentence-transformers / the model is available.
+        import builtins
+
+        real_import = builtins.__import__
+
+        def _fail_st(name, *args, **kwargs):
+            if name == "sentence_transformers" or name.startswith("sentence_transformers."):
+                raise ImportError("forced: sentence-transformers unavailable")
+            return real_import(name, *args, **kwargs)
+
+        monkeypatch.setattr(builtins, "__import__", _fail_st)
+
         settings = Settings(rerank=RerankConfig(backend="cross_encoder"))
         rr = RerankerFactory.create(settings)
         cands = [

@@ -37,7 +37,9 @@ retrieval:
   fusion_weights: {}        # per-route weights, e.g. {dense: 1.0, sparse: 1.0}; empty = plain RRF
   enable_nfkc: true         # NFKC normalization (full/half-width; stdlib)
   normalize_casefold: true  # case folding (stdlib)
-  normalize_to_simplified: false  # traditional->simplified (needs OpenCC; degrades if missing)
+  normalize_to_simplified: true   # traditional->simplified (needs OpenCC; degrades if missing).
+                                  # A/B on a CJK corpus: improves ranking (mrr/ndcg) of
+                                  # traditional-Chinese queries; no downside when queries are simplified.
   enable_filter_extraction: false # parse structured filters from query text
   sparse_filter_overfetch: 4      # over-fetch multiplier for sparse pre-filter
   enable_synonym_expansion: false # synonym/alias OR-expansion into BM25
@@ -50,7 +52,10 @@ retrieval:
   hyde_skip_doc_types: [xlsx]     # doc_types that skip HyDE (structured data)
   enable_mmr: false         # MMR diversity stage
   mmr_lambda: 0.5           # relevance vs diversity (1.0 = no MMR effect)
-  min_score_threshold: 0.0  # abstain threshold (0 = disabled)
+  min_score_threshold: 0.0  # abstain threshold (0 = disabled). With a working
+                            # cross-encoder reranker (e.g. bge-reranker, sigmoid
+                            # 0~1 scores), ~0.95 cleanly abstains on no-answer
+                            # queries; calibrate per corpus before enabling.
 
 splitter:
   type: recursive           # default splitter
@@ -70,13 +75,16 @@ splitter:
 
 rerank:
   backend: cross_encoder    # none | cross_encoder | llm
-  model: cross-encoder/ms-marco-MiniLM-L-6-v2
+  model: BAAI/bge-reranker-base   # 多语言 cross-encoder（含中文）；需 pip install sentence-transformers
+  # 纯英文可用更轻量的 cross-encoder/ms-marco-MiniLM-L-6-v2
   top_m: 30
 
 evaluation:
   backends:
-    - ragas
-    - custom
+    - custom            # 首命中检索指标：hit_rate / mrr（零依赖）
+    - retrieval_metrics # 排序/完整性检索指标：recall@k / ndcg@k / map@k（零依赖）
+    - llm_judge         # LLM-as-judge 生成指标：faithfulness / answer_relevancy / context_precision
+    # - ragas           # 可选；需 pip install ragas（注意与 langchain 版本兼容性）
 
 observability:
   enabled: true
