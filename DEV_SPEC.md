@@ -3155,9 +3155,9 @@ dashboard:
 
 ### H10：Phase D 开关 A/B
 - **目标**：用评估数据决定 Phase D 各检索增强开关的默认值。
-- **说明**：针对开关易饱和的问题，构造"困难 golden 子集"（近义词/大小写/全角/繁体/口语/多跳），按 difficulty_tag 归因。结论：`normalize_to_simplified` 对繁体查询排名（mrr/ndcg）有可测提升 → 默认开启；`normalize_casefold`/`enable_nfkc`/`enable_mmr` 在当前语料与 dense 主导下无可测收益 → 保持现状；`enable_synonym_expansion`（需同义词表）与 `query_transform`（需 LLM）留后续。
-- **验收标准**：有数据支撑的默认值调整落入 `config/settings.yaml(.example)`。
-- **测试方法**：A/B 驱动脚本（本地）对 baseline vs 单项开启逐一对比。
+- **说明**：针对开关易饱和的问题，构造"困难 golden 子集"（近义词/大小写/全角/繁体/口语/多跳），按 difficulty_tag 归因。结论：`normalize_to_simplified` 对繁体查询排名（mrr/ndcg）有可测提升 → 默认开启；`normalize_casefold`/`enable_nfkc`/`enable_mmr` 在当前语料与 dense 主导下无可测收益 → 保持现状；`enable_synonym_expansion`（词级 OR 扩展）对"描述性意译"类问法无效（应由查询变换解决）→ 默认关；`query_transform=multi_query` 对口语/意译查询排名有明显提升（mrr/ndcg），但每查询需调 LLM（成本/延迟），`hyde` 本语料无收益 → 默认保持 `none`，文档建议"口语/意译为主且可接受成本时启用 multi_query"。
+- **验收标准**：有数据支撑的默认值调整落入 `config/settings.yaml(.example)`；带成本的开关给出启用建议而非强制默认。
+- **测试方法**：A/B 驱动脚本（本地）对 baseline vs 各开关逐一对比。
 
 ---
 
