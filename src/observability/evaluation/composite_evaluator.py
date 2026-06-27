@@ -33,6 +33,7 @@ class CompositeEvaluator(BaseEvaluator):
         golden_ids: list[str],
         generated_answer: str = "",
         ground_truth: str = "",
+        contexts: list[str] | None = None,
     ) -> dict[str, float]:
         """Run all evaluators and merge their metrics.
 
@@ -44,7 +45,8 @@ class CompositeEvaluator(BaseEvaluator):
             name = ev.evaluator_name
             try:
                 per_eval[name] = ev.evaluate(
-                    query, retrieved_ids, golden_ids, generated_answer, ground_truth
+                    query, retrieved_ids, golden_ids,
+                    generated_answer, ground_truth, contexts,
                 )
             except Exception as exc:
                 logger.warning("Evaluator '%s' failed: %s", name, exc)
