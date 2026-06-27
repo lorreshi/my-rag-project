@@ -22,21 +22,21 @@
 
 > **核心定位：自学与教学同步 (Learning by Teaching)**
 > 
-> 本项目是我个人技术学习、丰富简历、备战面试的实战历程，同时也是一份同步教学的开源资源。我相信"**教是最好的学**"——在整理代码、撰写文档、录制视频的过程中，我自己对 RAG 的理解也在不断深化。希望这份"边学边教"的成果能够帮助到更多同样在求职路上的朋友。
+> 本项目是我个人技术学习与工程实践的实战历程，同时也是一份同步教学的开源资源。我相信"**教是最好的学**"——在整理代码、撰写文档、录制视频的过程中，我自己对 RAG 的理解也在不断深化。希望这份"边学边教"的成果能够帮助到更多正在学习 RAG 的朋友。
 
-本项目不仅是一个功能完备的智能问答框架，更是一个专为 **RAG 技术学习与面试求职** 设计的实战平台：
+本项目不仅是一个功能完备的智能问答框架，更是一个专为 **RAG 技术学习与工程实践** 设计的实战平台：
 
 #### 1️⃣ 实战驱动学习 (Learn by Doing)
-项目架构本身就是 RAG 面试题的"**活体答案**"。我们将经典面试考点直接融入代码设计，通过动手实践来巩固理论知识：
+项目架构本身就是 RAG 核心知识点的"**活体实现**"。我们将经典工程考点直接融入代码设计，通过动手实践来巩固理论知识：
 - 分层检索 (Hierarchical Retrieval)
 - Hybrid Search (BM25 + Dense Embedding)
 - Rerank 重排序机制
 - Embedding 策略与优化
-- RAG 性能评测 (Ragas/DeepEval)
+- RAG 性能评测 (检索指标 + LLM-as-judge 生成指标)
 
 #### 2️⃣ 开箱即用与深度扩展并重 (Plug-and-Play & Extensible)
 - **开箱即用**：提供 MCP 标准接口，可直接对接 Copilot/Claude，拿到项目即可运行体验。
-- **深度扩展**：保留完全模块化的内部结构，方便开发者替换组件、魔改算法，作为具备深度的个人简历项目。
+- **深度扩展**：保留完全模块化的内部结构，方便开发者替换组件、魔改算法，作为一个具备技术深度的实战项目持续演进。
 - **扩展指引**：文档中会明确指出各模块的扩展方向与建议，帮助你在掌握基础后继续深入迭代。
 
 #### 3️⃣ 配套教学资源 (Comprehensive Learning Materials)
@@ -48,16 +48,16 @@
 | 💻 **代码示范** | 带详细注释的源码、关键模块的 Step-by-step 实现 |
 | 🎬 **视频讲解** | RAG 核心知识点回顾、代码细节精讲、环境配置教程 |
 
-#### 4️⃣ 学习路线与面试指南 (Study Guide & Interview Prep)
+#### 4️⃣ 学习路线与知识地图 (Study Guide & Knowledge Map)
 针对每个模块，我会整理：
 - **📚 知识点清单**：这块涉及哪些理论知识需要提前学习（如 BM25 原理、FAISS 索引类型、Cross-Encoder vs Bi-Encoder）
-- **❓ 高频面试题**：结合项目代码讲解常见面试问题及参考答案
-- **📝 简历撰写建议**：如何将本项目的亮点写进简历，突出技术深度
+- **❓ 常见问题答疑**：结合项目代码讲解该模块的关键设计取舍与易错点
+- **🛠️ 工程实践建议**：如何在真实场景中落地、调优与扩展该模块
 
 #### 5️⃣ 社区交流与持续迭代 (Community & Iteration)
-- **经验分享**：我自己的面试经历、大家使用本项目面试的反馈，都会汇总沉淀
-- **问题讨论**：一起探讨"如何将本项目写进简历"、"针对本项目的面试题怎么答"
-- **持续更新**：从代码 → 八股知识 → 面试技巧，形成完整的求职知识库，帮助大家更好地拿到 Offer 🎯
+- **经验分享**：我自己的实现踩坑记录、大家使用本项目的反馈，都会汇总沉淀
+- **问题讨论**：一起探讨"如何扩展某个模块"、"某个设计为什么这么做"
+- **持续更新**：从代码 → 原理讲解 → 工程实践，形成一份完整的 RAG 学习与实战知识库 🎯
 
 ---
 
@@ -2046,11 +2046,16 @@ dashboard:
 
 | 任务编号 | 任务名称 | 状态 | 完成日期 | 备注 |
 |---------|---------|------|---------|------|
-| H1 | RagasEvaluator 实现 | [x] | | 回填 |
-| H2 | CompositeEvaluator 实现 | [x] | | 回填 |
-| H3 | EvalRunner + Golden Test Set | [x] | | 回填；golden set 目前为样例占位 |
-| H4 | 评估面板页面 | [x] | | 回填 |
+| H1 | RagasEvaluator 实现 | [x] | | 回填；ragas 0.4.x 与 langchain 1.x 不兼容，改由 H7 的 LLM-as-judge 落地生成指标，ragas 作为可选 backend 保留 |
+| H2 | CompositeEvaluator 实现 | [x] | | 回填；失败隔离 + 指标命名空间合并 |
+| H3 | EvalRunner + Golden Test Set | [x] | | 回填；新增真实 golden set（高铁语料，本地）+ 困难子集；evaluate.py 支持 --generate |
+| H4 | 评估面板页面 | [x] | | 回填；2026-06 接入生成开关 + 新指标展示 + 生成答案明细 |
 | H5 | Recall 回归测试（E2E） | [x] | | 回填；tests/e2e/test_recall.py |
+| H6 | RetrievalMetricsEvaluator（recall/ndcg/map） | [x] | 2026-06-27 | 补充排序/完整性检索指标，纯排名计算、零依赖；含单测 |
+| H7 | LLMJudgeEvaluator（LLM-as-judge 生成指标） | [x] | 2026-06-27 | faithfulness/answer_relevancy/context_precision，用项目 LLM 客户端，规避 ragas 依赖；含单测 |
+| H8 | EvalRunner 生成链 | [x] | 2026-06-27 | 检索→取上下文正文→LLM 生成答案→喂评估器；不可答案例仅计 faithfulness |
+| H9 | 重排多语言修复 + 阈值校准 | [x] | 2026-06-27 | 重排模型换 BAAI/bge-reranker-base（修中文重排）；min_score_threshold 校准为 0.95（弃答门）|
+| H10 | Phase D 开关 A/B | [x] | 2026-06-27 | 困难子集量化对比；normalize_to_simplified 经数据验证默认开启；casefold/nfkc/mmr 本轮无可测收益 |
 
 #### 阶段 I：端到端验收与文档收口
 
@@ -2075,9 +2080,9 @@ dashboard:
 | 阶段 E | 6 | 6 | 100% |
 | 阶段 F | 5 | 5 | 100% |
 | 阶段 G | 6 | 6 | 100% |
-| 阶段 H | 5 | 5 | 100% |
+| 阶段 H | 10 | 10 | 100% |
 | 阶段 I | 5 | 0 | 0% |
-| **总计** | **68** | **63** | **93%** |
+| **总计** | **73** | **68** | **93%** |
 
 
 ---
@@ -3104,6 +3109,56 @@ dashboard:
 - **验收标准**：hit@k 达到阈值（阈值写死在测试里，便于回归）。
 - **测试方法**：`pytest -q tests/e2e/test_recall.py`。
 
+### H6：RetrievalMetricsEvaluator（recall@k / ndcg@k / map@k）
+- **目标**：补充 hit_rate/mrr 之外的"完整性 + 排序质量"检索指标，纯排名计算、不依赖 LLM。
+- **修改文件**：
+  - `src/libs/evaluator/retrieval_metrics_evaluator.py`（新增）
+  - `src/libs/evaluator/evaluator_factory.py`（注册 `retrieval_metrics` backend）
+  - `tests/unit/test_retrieval_metrics_evaluator.py`（新增）
+- **说明**：hit_rate/mrr 是"首命中"视角，看不出召回是否完整、第一名之后的排序。recall@k 看找全没找全，ndcg@k 带位置折扣（支持将来分级相关），map@k 用 Average Precision 奖励相关块靠前。
+- **验收标准**：已知排序下三指标取值正确；空 golden（不可答）返回 0 并被聚合排除。
+- **测试方法**：`pytest -q tests/unit/test_retrieval_metrics_evaluator.py`。
+
+### H7：LLMJudgeEvaluator（LLM-as-judge 生成指标）
+- **目标**：用项目自有 LLM 客户端实现 faithfulness / answer_relevancy / context_precision，规避 ragas + langchain 的依赖冲突与端点适配。
+- **修改文件**：
+  - `src/libs/evaluator/llm_judge_evaluator.py`（新增）
+  - `src/libs/evaluator/evaluator_factory.py`（注册 `llm_judge` backend）
+  - `src/libs/evaluator/base_evaluator.py`、`custom_evaluator.py`、`composite_evaluator.py`（evaluate() 增加 `contexts` 参数并透传）
+  - `tests/unit/test_llm_judge_evaluator.py`（新增）
+- **实现要点**：
+  - faithfulness：LLM 拆原子主张并逐条判定是否被上下文支撑，score=支撑/总数；正确拒答视为忠实（1.0）。
+  - answer_relevancy：LLM 从答案反推 N 个问题 → 与原问题做 embedding 余弦相似度均值；无 embedding 时降级为 LLM 直接打分。
+  - context_precision：逐上下文判定有用性 → Average Precision 排名加权。
+  - 单次/批量 LLM 调用；JSON 解析容错；可注入 llm/embedding 便于测试。
+- **验收标准**：桩 LLM 下三指标逻辑正确；JSON 异常/LLM 异常安全降级。
+- **测试方法**：`pytest -q tests/unit/test_llm_judge_evaluator.py`。
+
+### H8：EvalRunner 生成链
+- **目标**：补齐"检索增强生成"中的生成步骤，使生成质量指标可用。
+- **修改文件**：
+  - `src/observability/evaluation/eval_runner.py`
+  - `scripts/evaluate.py`（新增 `--generate` 开关）
+- **说明**：原 EvalRunner 只跑检索；本任务在检索后取上下文正文、调 LLM 生成答案，再把 answer/contexts/ground_truth 喂给评估器。聚合按 metric 分别计数：不可答案例仅计入 faithfulness，不计 hit_rate/mrr/recall/ndcg/map/answer_relevancy/context_precision。
+- **验收标准**：`evaluate.py --generate` 跑通并输出检索 + 生成指标。
+- **测试方法**：`pytest -q tests/e2e/test_recall.py` + 真实 golden set 实跑。
+
+### H9：重排多语言修复 + 阈值校准
+- **目标**：修复中文场景下重排实际失效的问题，并据此校准弃答阈值。
+- **修改文件**：
+  - `config/settings.yaml(.example)`（rerank.model → `BAAI/bge-reranker-base`）
+  - `src/libs/reranker/cross_encoder_reranker.py`（模型加载失败放宽为 catch Exception + 显式 WARNING，不再静默降级）
+  - `tests/unit/test_cross_encoder_reranker.py`（fallback 测试确定性化）
+- **说明**：原模型 `ms-marco-MiniLM` 为英文，且 sentence-transformers 缺失时静默退回"按空格分词"stub，中文重排分恒≈0。换多语言模型后重排分有区分度；基于此在真实 golden set 上校准 `min_score_threshold`（可答 Top1≈0.997 vs 不可答≤0.91 → 取 0.95）。
+- **验收标准**：弃答门在 golden set 上正确区分可答/不可答；全量单测通过。
+- **测试方法**：`pytest -q tests/unit`（含重排）；阈值用校准脚本 + apply_threshold 验证。
+
+### H10：Phase D 开关 A/B
+- **目标**：用评估数据决定 Phase D 各检索增强开关的默认值。
+- **说明**：针对开关易饱和的问题，构造"困难 golden 子集"（近义词/大小写/全角/繁体/口语/多跳），按 difficulty_tag 归因。结论：`normalize_to_simplified` 对繁体查询排名（mrr/ndcg）有可测提升 → 默认开启；`normalize_casefold`/`enable_nfkc`/`enable_mmr` 在当前语料与 dense 主导下无可测收益 → 保持现状；`enable_synonym_expansion`（需同义词表）与 `query_transform`（需 LLM）留后续。
+- **验收标准**：有数据支撑的默认值调整落入 `config/settings.yaml(.example)`。
+- **测试方法**：A/B 驱动脚本（本地）对 baseline vs 单项开启逐一对比。
+
 ---
 
 ## 阶段 I：端到端验收与文档收口（目标：开箱即用的"可复现"工程）
@@ -3166,7 +3221,7 @@ dashboard:
 - **M3（完成阶段 D+E）**：在线查询 + MCP tools 可用，可在 Copilot/Claude 中调用。
 - **M4（完成阶段 F）**：Ingestion + Query 双链路可追踪，JSON Lines 持久化。
 - **M5（完成阶段 G）**：六页面可视化管理平台就绪（评估面板为占位），数据可浏览、可管理、链路可追踪。
-- **M6（完成阶段 H+I）**：评估体系完整 + E2E 验收通过 + 文档完善，形成"面试/教学/演示"可复现项目。
+- **M6（完成阶段 H+I）**：评估体系完整 + E2E 验收通过 + 文档完善，形成"教学/演示"可复现项目。
 
 
 
