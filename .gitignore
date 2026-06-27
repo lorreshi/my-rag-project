@@ -49,6 +49,8 @@ logs/
 tests/fixtures/sample_documents/
 # Local-only golden set tied to a private ingested corpus (not reproducible in repo)
 tests/fixtures/golden_rail.json
+tests/fixtures/golden_rail_hard.json
+tests/fixtures/golden_rail_hard.json
 
 # 临时承接session的md
 tmp_summary_note/
