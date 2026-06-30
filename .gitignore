@@ -31,9 +31,12 @@ config/settings.yaml
 .github/
 
 # Private content (kept only in the separate private repo: rag_spec)
+# These are symlinks into ../my-rag-project-private; no trailing slash so the
+# symlinks themselves are ignored (git treats a symlink as a file).
 DEV_SPEC.md
-.claude/
-.kiro/
+.claude
+.kiro
+tmp_summary_note
 
 # OS
 .DS_Store
