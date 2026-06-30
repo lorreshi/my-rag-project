@@ -46,9 +46,13 @@ def register_default_tools(
     registered: list[str] = []
 
     # E3: query_knowledge_hub (hybrid search + rerank).
+    # Registered lazily: building HybridSearch + Reranker eagerly loads heavy
+    # models (and can do blocking network checks), which under stdio would
+    # delay the read loop and time out the client's initialize. The retrieval
+    # stack is built on the first tools/call instead.
     def _build_query(h):
         from src.mcp_server.tools.query_knowledge_hub import QueryKnowledgeHubTool
-        QueryKnowledgeHubTool.from_settings(settings).register(h)
+        QueryKnowledgeHubTool.register_lazy(h, settings)
 
     # E4: list_collections (scan documents dir).
     def _build_list(h):

@@ -100,6 +100,35 @@ class QueryKnowledgeHubTool:
         )
 
     @classmethod
+    def register_lazy(cls, handler, settings: "Settings", **overrides: Any) -> None:
+        """Register the tool schema now, building the retrieval stack on first call.
+
+        Constructing the real tool eagerly loads heavy retrieval components
+        (dense embedding model + cross-encoder reranker). Under the stdio
+        transport that must not happen at startup: blocking model loads (e.g.
+        a network metadata check for the reranker model) would keep the server
+        from entering its read loop and the client's ``initialize`` would time
+        out. Deferring construction to the first ``tools/call`` keeps startup
+        instant while preserving identical behaviour once invoked.
+        """
+        built: dict[str, "QueryKnowledgeHubTool"] = {}
+
+        def _handler(arguments: dict[str, Any], trace: "TraceContext | None" = None):
+            tool = built.get("tool")
+            if tool is None:
+                logger.info("Building query_knowledge_hub retrieval stack (first call)")
+                tool = cls.from_settings(settings, **overrides)
+                built["tool"] = tool
+            return tool(arguments, trace=trace)
+
+        handler.register_tool(
+            name=TOOL_NAME,
+            description=TOOL_DESCRIPTION,
+            input_schema=INPUT_SCHEMA,
+            handler=_handler,
+        )
+
+    @classmethod
     def from_settings(cls, settings: "Settings", **overrides: Any) -> "QueryKnowledgeHubTool":
         """Build the tool with real HybridSearch + Reranker from settings."""
         from src.core.query_engine.hybrid_search import HybridSearch
