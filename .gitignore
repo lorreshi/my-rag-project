@@ -29,7 +29,11 @@ config/settings.yaml
 
 # Agent / tooling local files
 .github/
-.claude/skills/project-review/
+
+# Private content (kept only in the separate private repo: rag_spec)
+DEV_SPEC.md
+.claude/
+.kiro/
 
 # OS
 .DS_Store
